@@ -36,8 +36,13 @@ function similarity(a, b) {
   return 1 - editDistance(a, b) / maxLen
 }
 
+function debugEnabled() {
+  try { return localStorage.getItem('voskDebug') === '1' } catch { return false }
+}
+
 /**
- * @param {string} recognizedWord - Vosk's result text, or '[unk]'/'' for no attempt
+ * @param {string} recognizedWord - Vosk's result text, '[unk]'/'' for no
+ *   grammar match, or '[noattempt]' if no speech was ever detected.
  * @param {{spokenWord:string, display:string|number, variants:string[]}} targetItem
  * @param {{acceptanceLevel:number}} settings - teacher-facing threshold, 0..1
  * @returns {{isCorrect: boolean, matchType: 'exact'|'phonetic'|'none'}}
@@ -46,8 +51,11 @@ export function evaluate(recognizedWord, targetItem, settings) {
   const threshold = settings?.acceptanceLevel ?? 0.65
   const recognized = normalize(recognizedWord)
 
-  // No attempt detected, or out-of-grammar noise — always a fail.
-  if (!recognized || recognized === 'unk') {
+  // No attempt detected (silence/mic issue), out-of-grammar noise, or
+  // empty — always a hard fail. Never accept on "recognition finished
+  // without error" alone; this decision is the only accept path.
+  if (!recognized || recognized === 'unk' || recognized === 'noattempt') {
+    if (debugEnabled()) console.log('[evaluate]', { recognizedWord, decision: 'FAIL (empty/unk/noattempt)' })
     return { isCorrect: false, matchType: 'none' }
   }
 
@@ -55,17 +63,24 @@ export function evaluate(recognizedWord, targetItem, settings) {
   const targetDisplay = normalize(String(targetItem.display))
 
   if (recognized === targetWord || recognized === targetDisplay) {
+    if (debugEnabled()) console.log('[evaluate]', { recognized, targetWord, decision: 'PASS (exact)' })
     return { isCorrect: true, matchType: 'exact' }
   }
 
   const variantSet = (targetItem.variants || []).map(normalize)
   if (variantSet.includes(recognized)) {
+    if (debugEnabled()) console.log('[evaluate]', { recognized, targetWord, decision: 'PASS (variant)' })
     return { isCorrect: true, matchType: 'phonetic' }
   }
 
   // Leniency: how similar is the recognized word to the target, as a 0..1
   // ratio, compared against the teacher's acceptance threshold.
-  if (similarity(recognized, targetWord) >= threshold) {
+  const sim = similarity(recognized, targetWord)
+  const pass = sim >= threshold
+  if (debugEnabled()) {
+    console.log('[evaluate]', { recognized, targetWord, similarity: sim, threshold, decision: pass ? 'PASS (similarity)' : 'FAIL' })
+  }
+  if (pass) {
     return { isCorrect: true, matchType: 'phonetic' }
   }
 

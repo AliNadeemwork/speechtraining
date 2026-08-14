@@ -34,6 +34,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
   const [mirrorStatus, setMirrorStatus] = useState('pending') // 'pending' | 'ok' | 'unavailable'
   const [modelReady, setModelReady] = useState(false)
   const [micError, setMicError] = useState(null)
+  const [noAttempt, setNoAttempt] = useState(false)
 
   // Section/range misconfiguration guard — never render with no items.
   useEffect(() => {
@@ -105,6 +106,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
   useEffect(() => {
     if (phase !== 'INTRO' || !item) return
     strikesRef.current = 0
+    setNoAttempt(false)
     const cancel = speakRepeated(
       item.spokenWord,
       settings.repetitions,
@@ -170,12 +172,22 @@ export default function Lesson({ sectionId, settings, onExit }) {
     if (!modelReady) return
     busyRef.current = true
     setMicError(null)
+    setNoAttempt(false)
     setPhase('LISTENING')
 
     try {
       await startListening()
       const word = await stopListening()
       busyRef.current = false
+
+      // No speech was ever detected (silence/mic issue) — this is not a
+      // failed attempt, just nothing to judge. Don't count it as a strike.
+      if (word === '[noattempt]') {
+        setNoAttempt(true)
+        setPhase('READY')
+        return
+      }
+      setNoAttempt(false)
 
       const { isCorrect } = evaluate(word, item, settings)
       if (isCorrect) {
@@ -252,6 +264,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
         )}
 
         {phase === 'RETRY' && <p className="try-again">Try again!</p>}
+        {phase === 'READY' && noAttempt && <p className="try-again">I didn't hear you, try again!</p>}
         {phase === 'LISTENING' && <p className="mic-hint listening-hint">Listening…</p>}
         {phase === 'INTRO' && <p className="mic-hint intro-hint">Listen carefully 🔊</p>}
         {!modelReady && phase !== 'INTRO' && phase !== 'SUCCESS' && phase !== 'GOOD_EFFORT' && (
