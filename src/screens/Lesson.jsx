@@ -1,42 +1,121 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { NUMBERS } from '../data/numbers'
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import logo from '../assets/logo.png'
+import { getSection } from '../data/sections'
 import { speakRepeated, speakOnce } from '../lib/tts'
-import { listenOnce } from '../lib/recognition'
-import { isAccepted } from '../lib/matching'
+import { initModel, setGrammar, startListening, stopListening, abortListening, isSupported } from '../lib/recognition'
+import { evaluate } from '../lib/evaluate'
 import { playApplause } from '../lib/applause'
-import { TopBar, ProgressDots, WordChip, MicButton } from '../components/ui'
+import { Mirror, SpeakerIcon, MicIcon, ExitXIcon } from '../components/ui'
+import { HelpModal } from '../components/Help'
 
-// Per-number state machine:
-// INTRO → READY → LISTENING → (SUCCESS | RETRY → READY)
-// SUCCESS → Next → INTRO of next number; after 10 → home.
+const MAX_STRIKES = 3
 
-export default function Lesson({ settings, onExit }) {
+// Per-item state machine:
+// INTRO (auto-pronounce) → READY → LISTENING →
+//   SUCCESS (correct)
+//   | RETRY → READY (wrong, < 3 strikes)
+//   | GOOD_EFFORT (an [unk] attempt, or the 3rd consecutive fail) → auto-advance
+// SUCCESS → auto-advance (or wait for Next if auto-advance is off) → INTRO
+// of next item in the section; after the last one → back to Section Select.
+
+export default function Lesson({ sectionId, settings, onExit }) {
+  const section = useMemo(() => getSection(sectionId), [sectionId])
+
+  const activeItems = useMemo(() => {
+    if (!section) return []
+    return section.hasRange
+      ? section.items.filter(i => i.id >= settings.rangeMin && i.id <= settings.rangeMax)
+      : section.items
+  }, [section, settings.rangeMin, settings.rangeMax])
+
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState('INTRO')
-  const [stars, setStars] = useState(0)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [mirrorStatus, setMirrorStatus] = useState('pending') // 'pending' | 'ok' | 'unavailable'
+  const [modelReady, setModelReady] = useState(false)
+  const [micError, setMicError] = useState(null)
 
-  const number = NUMBERS[index]
-  const cancelRef = useRef(null)
+  // Section/range misconfiguration guard — never render with no items.
+  useEffect(() => {
+    if (!section || activeItems.length === 0) onExit()
+  }, [section, activeItems.length, onExit])
 
-  const cleanup = useCallback(() => {
-    cancelRef.current?.()
-    cancelRef.current = null
+  const item = activeItems[Math.min(index, Math.max(activeItems.length - 1, 0))]
+  const cancelSpeechRef = useRef(null)
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+  const busyRef = useRef(false) // guards double-taps across Listen/Speak
+  const strikesRef = useRef(0)
+
+  const cleanupSpeech = useCallback(() => {
+    cancelSpeechRef.current?.()
+    cancelSpeechRef.current = null
   }, [])
 
-  // INTRO: pronounce the number `repetitions` times, then show the mic.
+  // Camera mirror — lesson works fully even if this fails/denied.
   useEffect(() => {
-    if (phase !== 'INTRO') return
+    let cancelled = false
+    navigator.mediaDevices?.getUserMedia?.({ video: true })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return }
+        streamRef.current = stream
+        if (videoRef.current) videoRef.current.srcObject = stream
+        setMirrorStatus('ok')
+      })
+      .catch(() => { if (!cancelled) setMirrorStatus('unavailable') })
+    return () => {
+      cancelled = true
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+  }, [])
+
+  // Vosk model load (once) + grammar for this section's word list.
+  // Speak stays disabled until this resolves — never listen before ready.
+  useEffect(() => {
+    if (!section) return
+    let cancelled = false
+    if (!isSupported()) { setModelReady(false); return }
+    initModel('en')
+      .then(() => {
+        if (cancelled) return
+        setGrammar(section.items.map(i => i.spokenWord))
+        setModelReady(true)
+      })
+      .catch(() => { if (!cancelled) setModelReady(false) })
+    return () => { cancelled = true }
+  }, [section])
+
+  // Stop mic/camera/speech on unmount AND on Exit (Exit calls onExit, which
+  // unmounts this screen). The Vosk model itself is kept loaded across
+  // section switches within the session — reloading ~40MB every time the
+  // child moves between Numbers and Alphabets would be a bad trade for a
+  // cleanup guarantee that abortListening() already satisfies (it tears
+  // down the mic stream and in-flight recognition immediately).
+  useEffect(() => {
+    return () => {
+      cleanupSpeech()
+      window.speechSynthesis?.cancel()
+      abortListening()
+      streamRef.current?.getTracks().forEach(t => t.stop())
+    }
+  }, [cleanupSpeech])
+
+  // INTRO: pronounce the item `repetitions` times, then show the buttons.
+  useEffect(() => {
+    if (phase !== 'INTRO' || !item) return
+    strikesRef.current = 0
     const cancel = speakRepeated(
-      number.word,
+      item.spokenWord,
       settings.repetitions,
       { rate: settings.speechRate },
       () => setPhase('READY')
     )
-    cancelRef.current = cancel
+    cancelSpeechRef.current = cancel
     return cancel
   }, [phase, index]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // RETRY: vibrate + shake, then return to the mic automatically.
+  // RETRY: vibrate + shake, then return to ready.
   useEffect(() => {
     if (phase !== 'RETRY') return
     if (navigator.vibrate) navigator.vibrate([120, 60, 120])
@@ -44,105 +123,182 @@ export default function Lesson({ settings, onExit }) {
     return () => clearTimeout(t)
   }, [phase])
 
-  // SUCCESS: applause.
+  // SUCCESS: celebration, then auto-advance unless disabled in settings.
   useEffect(() => {
     if (phase !== 'SUCCESS') return
     playApplause()
-    setStars(s => s + 1)
-  }, [phase])
+    if (settings.autoAdvance) {
+      const t = setTimeout(() => goNext(), 1800)
+      return () => clearTimeout(t)
+    }
+  }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const startListening = () => {
-    if (phase !== 'READY' && phase !== 'RETRY') return
-    setPhase('LISTENING')
-    cancelRef.current = listenOnce({
-      onResult: (transcripts) => {
-        cancelRef.current = null
-        if (transcripts.length && isAccepted(transcripts, number, settings.mode)) {
-          setPhase('SUCCESS')
-        } else {
-          setPhase('RETRY')
-        }
-      },
-      onError: () => {
-        cancelRef.current = null
-        setPhase('RETRY')
-      },
-    })
-  }
+  // GOOD_EFFORT: the real anti-stuck mechanism — an [unk] attempt or the
+  // 3rd consecutive fail always advances, so a child can never get stuck.
+  useEffect(() => {
+    if (phase !== 'GOOD_EFFORT') return
+    const t = setTimeout(() => goNext(), 1800)
+    return () => clearTimeout(t)
+  }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const next = () => {
-    cleanup()
-    if (index + 1 >= NUMBERS.length) {
+  const goNext = useCallback(() => {
+    cleanupSpeech()
+    if (index + 1 >= activeItems.length) {
       onExit()
     } else {
       setIndex(i => i + 1)
       setPhase('INTRO')
     }
+  }, [index, activeItems.length, onExit, cleanupSpeech])
+
+  const exit = () => {
+    if (!window.confirm('Exit this lesson and choose another?')) return
+    cleanupSpeech()
+    abortListening()
+    onExit()
   }
 
-  const exit = () => { cleanup(); onExit() }
-
-  const replayWord = () => {
-    if (phase === 'READY') speakOnce(number.word, { rate: settings.speechRate })
+  const handleListen = () => {
+    if (busyRef.current) return
+    if (phase !== 'READY' && phase !== 'RETRY') return
+    speakOnce(item.spokenWord, { rate: settings.speechRate })
   }
 
-  // ---------- SUCCESS SCREEN (4A) ----------
-  if (phase === 'SUCCESS') {
-    return (
-      <div className="screen lesson-screen success-bg">
-        <TopBar onBack={exit} stars={stars} />
-        <div className="lesson-body">
-          <div className="sunburst" aria-hidden="true" />
-          <div className="big-number number-zoom">{number.value}</div>
-          <div className="success-check" aria-hidden="true">✓</div>
-          <p className="success-text">Excellent!</p>
-          <div className="success-hands" aria-hidden="true">👏🎉👏</div>
-          <button className="btn btn-primary btn-next" onClick={next}>
-            {index + 1 >= NUMBERS.length ? 'Finish 🏠' : 'Next ➡'}
-          </button>
-        </div>
-      </div>
-    )
+  const handleSpeak = async () => {
+    if (busyRef.current) return
+    if (phase !== 'READY' && phase !== 'RETRY') return
+    if (!modelReady) return
+    busyRef.current = true
+    setMicError(null)
+    setPhase('LISTENING')
+
+    try {
+      await startListening()
+      const word = await stopListening()
+      busyRef.current = false
+
+      const { isCorrect } = evaluate(word, item, settings)
+      if (isCorrect) {
+        strikesRef.current = 0
+        setPhase('SUCCESS')
+        return
+      }
+
+      strikesRef.current += 1
+      if (word === '[unk]' || strikesRef.current >= MAX_STRIKES) {
+        setPhase('GOOD_EFFORT')
+      } else {
+        setPhase('RETRY')
+      }
+    } catch (err) {
+      busyRef.current = false
+      if (String(err?.message || err) === 'mic-denied') {
+        setMicError('Microphone access was denied. Please allow the microphone and try again.')
+        setPhase('READY')
+      } else {
+        setPhase('RETRY')
+      }
+    }
   }
 
-  // ---------- INTRO / READY / LISTENING / RETRY ----------
-  const shaking = phase === 'RETRY'
+  const isLast = index + 1 >= activeItems.length
+
+  if (!item) return null
 
   return (
     <div className="screen lesson-screen">
-      <TopBar onBack={exit} stars={stars} />
-      <ProgressDots total={NUMBERS.length} current={index} />
+      <header className="lesson-header">
+        <Mirror videoRef={videoRef} status={mirrorStatus} />
 
-      <div className="lesson-body">
-        <div className={'big-number' + (shaking ? ' number-shake' : '')}>
-          {number.value}
+        <div className="lesson-brand">
+          <div className="brand-divider" />
+          <img className="brand-logo" src={logo} alt="VAILA'S School logo" />
+          <h1 className="brand-title">VAILA'S Speech Trainer</h1>
+          <p className="brand-subtitle">{section.subtitle}</p>
+          <div className="brand-divider" />
         </div>
 
-        {phase === 'RETRY' && <p className="try-again">Try again!</p>}
+        <button className="exit-btn" onClick={exit} aria-label="Exit lesson">
+          <ExitXIcon />
+          <span>Exit</span>
+        </button>
+      </header>
 
-        <WordChip
-          word={number.word[0].toUpperCase() + number.word.slice(1)}
-          onSpeak={replayWord}
-          disabled={phase !== 'READY'}
-        />
+      <div className={'lesson-body' + (phase === 'SUCCESS' ? ' success-bg' : '')}>
+        {phase === 'SUCCESS' && <div className="sunburst" aria-hidden="true" />}
 
-        <MicButton
-          state={
-            phase === 'INTRO' ? 'hidden'
-            : phase === 'LISTENING' ? 'listening'
-            : 'idle'
-          }
-          onPress={startListening}
-        />
+        <div className={
+          'big-display' +
+          (phase === 'RETRY' ? ' number-shake' : '') +
+          (phase === 'SUCCESS' ? ' number-zoom' : '')
+        }>
+          {item.display}
+        </div>
+        <p className="number-word">{item.spokenWord[0].toUpperCase() + item.spokenWord.slice(1)}</p>
 
-        {(phase === 'READY' || phase === 'RETRY') && (
-          <p className="mic-hint">
-            Tap the mic and say <span className="mic-word">"{number.word[0].toUpperCase() + number.word.slice(1)}"</span>
-          </p>
+        {phase === 'SUCCESS' && (
+          <>
+            <div className="success-check" aria-hidden="true">✓</div>
+            <p className="success-text">Excellent!</p>
+            <div className="success-hands" aria-hidden="true">👏🎉👏</div>
+          </>
         )}
+
+        {phase === 'GOOD_EFFORT' && (
+          <>
+            <div className="success-check good-effort-check" aria-hidden="true">🙂</div>
+            <p className="good-effort-text">Good effort!</p>
+          </>
+        )}
+
+        {phase === 'RETRY' && <p className="try-again">Try again!</p>}
         {phase === 'LISTENING' && <p className="mic-hint listening-hint">Listening…</p>}
         {phase === 'INTRO' && <p className="mic-hint intro-hint">Listen carefully 🔊</p>}
+        {!modelReady && phase !== 'INTRO' && phase !== 'SUCCESS' && phase !== 'GOOD_EFFORT' && (
+          <p className="mic-hint intro-hint">Getting ready…</p>
+        )}
+        {micError && <p className="mic-error">{micError}</p>}
+
+        {phase !== 'SUCCESS' && phase !== 'GOOD_EFFORT' && (
+          <div className="action-row">
+            <button
+              className="btn btn-listen"
+              onClick={handleListen}
+              disabled={phase === 'LISTENING' || phase === 'INTRO'}
+            >
+              <SpeakerIcon /><span>Listen</span>
+            </button>
+            <button
+              className={'btn btn-speak' + (phase === 'LISTENING' ? ' btn-speak-active' : '')}
+              onClick={handleSpeak}
+              disabled={phase === 'LISTENING' || phase === 'INTRO' || !modelReady}
+            >
+              <MicIcon /><span>{phase === 'LISTENING' ? 'Listening…' : 'Speak'}</span>
+            </button>
+          </div>
+        )}
+
+        {phase === 'SUCCESS' && !settings.autoAdvance && (
+          <button className="btn btn-primary btn-next" onClick={goNext}>
+            {isLast ? 'Finish 🏁' : 'Next ➡'}
+          </button>
+        )}
       </div>
+
+      {phase !== 'SUCCESS' && phase !== 'GOOD_EFFORT' && (
+        <div className="bottom-row">
+          <button className="btn btn-nav" onClick={goNext}>
+            Next ➡
+          </button>
+          <button className="btn btn-help" onClick={() => setHelpOpen(true)}>
+            Help
+          </button>
+        </div>
+      )}
+
+      <footer className="lesson-footer">© VAILA'S School for Hearing Impaired Students</footer>
+
+      {helpOpen && <HelpModal item={item} onClose={() => setHelpOpen(false)} />}
     </div>
   )
 }

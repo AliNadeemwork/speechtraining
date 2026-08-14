@@ -1,17 +1,66 @@
-// Lesson content for Prototype v0.1: numbers 1-10.
-// `word` is the canonical pronunciation target.
-// `variants` are near-pronunciations accepted ONLY in Light mode.
-// Strict mode accepts only the exact word (or its digit form, since
-// speech recognizers often transcribe "one" as "1").
+// Lesson content for the Numbers section, 1-10.
+// Shared item shape (see src/data/sections.js):
+//   { id, display, spokenWord, variants[], helpText, mouthShape }
+//
+// `spokenWord` is the canonical word Vosk's grammar is built from and the
+// word TTS pronounces. `variants` are homophones considered during
+// evaluation (see lib/evaluate.js) — kept even though Vosk's grammar is
+// restricted to canonical spokenWords, since a looser/expanded grammar or a
+// future engine may return these forms directly.
+//
+// `helpText` — TODO(school): written by the dev team as a concise placeholder.
+// Please have a speech therapist review/replace these with clinically
+// accurate articulation guidance.
+// `mouthShape` — keyword used by the Help mouth animation: 'open' | 'round' | 'wide' | 'closed'.
 export const NUMBERS = [
-  { value: 1,  word: 'one',   variants: ['won', 'wan', 'un', 'juan'] },
-  { value: 2,  word: 'two',   variants: ['to', 'too', 'tu', 'do'] },
-  { value: 3,  word: 'three', variants: ['tree', 'free', 'thee', 'twee'] },
-  { value: 4,  word: 'four',  variants: ['for', 'fore', 'foor', 'pour'] },
-  { value: 5,  word: 'five',  variants: ['fife', 'hive', 'fibe'] },
-  { value: 6,  word: 'six',   variants: ['sicks', 'sick', 'seeks', 'sits'] },
-  { value: 7,  word: 'seven', variants: ['sven', 'saven', 'sevan', 'devon'] },
-  { value: 8,  word: 'eight', variants: ['ate', 'eat', 'aid', 'hate'] },
-  { value: 9,  word: 'nine',  variants: ['nein', 'nain', 'line', 'mine'] },
-  { value: 10, word: 'ten',   variants: ['tan', 'den', 'then', 'tin'] },
+  {
+    id: 1, display: '1', spokenWord: 'one', variants: ['won', 'wan', 'un', 'juan'],
+    helpText: 'TODO(school): Lips start rounded then relax; tongue tip taps behind the top teeth for the "n" at the end. Say "wuh-n".',
+    mouthShape: 'round',
+  },
+  {
+    id: 2, display: '2', spokenWord: 'two', variants: ['to', 'too', 'tu', 'do'],
+    helpText: 'TODO(school): Lips push forward and round tightly, like blowing a small kiss, for the long "oo" sound.',
+    mouthShape: 'round',
+  },
+  {
+    id: 3, display: '3', spokenWord: 'three', variants: ['tree', 'free', 'thee', 'twee'],
+    helpText: 'TODO(school): Tongue tip pokes gently between the front teeth for "th", then mouth widens into a smile for "ree".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 4, display: '4', spokenWord: 'four', variants: ['for', 'fore', 'foor', 'pour'],
+    helpText: 'TODO(school): Top teeth touch the bottom lip for "f", then lips round for the "or" sound.',
+    mouthShape: 'round',
+  },
+  {
+    id: 5, display: '5', spokenWord: 'five', variants: ['fife', 'hive', 'fibe'],
+    helpText: 'TODO(school): Top teeth touch bottom lip for "f", mouth opens wide for "eye", then lips almost close for "v".',
+    mouthShape: 'open',
+  },
+  {
+    id: 6, display: '6', spokenWord: 'six', variants: ['sicks', 'sick', 'seeks', 'sits'],
+    helpText: 'TODO(school): Teeth close together with a wide smile, air hisses out for "s", ending in a short "-icks".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 7, display: '7', spokenWord: 'seven', variants: ['sven', 'saven', 'sevan', 'devon'],
+    helpText: 'TODO(school): Smile wide for "s", then bottom lip touches top teeth for "v", ending with a relaxed "-en".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 8, display: '8', spokenWord: 'eight', variants: ['ate', 'eat', 'aid', 'hate'],
+    helpText: 'TODO(school): Mouth opens wide then narrows quickly for the "ay" sound, tongue tip taps behind top teeth for "t".',
+    mouthShape: 'open',
+  },
+  {
+    id: 9, display: '9', spokenWord: 'nine', variants: ['nein', 'nain', 'line', 'mine'],
+    helpText: 'TODO(school): Tongue tip touches behind the top teeth for "n", mouth opens wide for "eye".',
+    mouthShape: 'open',
+  },
+  {
+    id: 10, display: '10', spokenWord: 'ten', variants: ['tan', 'den', 'then', 'tin'],
+    helpText: 'TODO(school): Tongue tip taps behind the top teeth for "t", mouth stays relaxed and slightly open for "en".',
+    mouthShape: 'closed',
+  },
 ]

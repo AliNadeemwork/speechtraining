@@ -1,9 +1,9 @@
 import React from 'react'
 import logo from '../assets/logo.png'
-import { isRecognitionSupported } from '../lib/recognition'
+import { isSupported } from '../lib/recognition'
 
 export default function Home({ onStart, onSettings }) {
-  const supported = isRecognitionSupported()
+  const supported = isSupported()
 
   return (
     <div className="screen home-screen">
@@ -25,8 +25,8 @@ export default function Home({ onStart, onSettings }) {
 
         {!supported && (
           <p className="browser-warning">
-            Speech listening is not supported in this browser.
-            Please open this app in <strong>Google Chrome on an Android phone or tablet</strong>.
+            Speech listening is not supported in this browser. Please open
+            this app in a recent version of <strong>Chrome, Safari, or Edge</strong>.
           </p>
         )}
 
