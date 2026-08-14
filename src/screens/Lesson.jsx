@@ -56,20 +56,36 @@ export default function Lesson({ sectionId, settings, onExit }) {
   // Camera mirror — lesson works fully even if this fails/denied.
   useEffect(() => {
     let cancelled = false
-    navigator.mediaDevices?.getUserMedia?.({ video: true })
+    navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: 'user' } })
       .then((stream) => {
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return }
         streamRef.current = stream
-        if (videoRef.current) videoRef.current.srcObject = stream
+        // The <video> element only mounts once mirrorStatus flips to 'ok'
+        // (see the Mirror component), so videoRef.current is still null
+        // right here — wiring it up happens in the effect below, after the
+        // element has actually mounted.
         setMirrorStatus('ok')
       })
-      .catch(() => { if (!cancelled) setMirrorStatus('unavailable') })
+      .catch((err) => {
+        // Surfaced so the actual reason (denied / no camera / in use by
+        // another app) is visible in DevTools instead of silently failing.
+        console.warn('[Mirror] camera getUserMedia failed:', err?.name, err?.message)
+        if (!cancelled) setMirrorStatus('unavailable')
+      })
     return () => {
       cancelled = true
       streamRef.current?.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
   }, [])
+
+  // Attach the already-live stream once the <video> element actually
+  // exists (it only mounts after mirrorStatus becomes 'ok').
+  useEffect(() => {
+    if (mirrorStatus === 'ok' && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current
+    }
+  }, [mirrorStatus])
 
   // Vosk model load (once) + grammar for this section's word list.
   // Speak stays disabled until this resolves — never listen before ready.
