@@ -42,11 +42,13 @@ export default function Lesson({ sectionId, settings, onExit }) {
   }, [section, activeItems.length, onExit])
 
   const item = activeItems[Math.min(index, Math.max(activeItems.length - 1, 0))]
-  // Alphabet items carry a dedicated ttsText (the phonetically-correct
-  // spelling to speak/display, which can differ from the raw display
-  // letter). Numbers items have no ttsText, so this falls back to
+  // Alphabet items carry ttsSpelling (what's actually spoken — a real word
+  // chosen for correct TTS pronunciation and reliable Vosk recognition,
+  // see data/alphabets.js) and phonicLabel (the pedagogical label shown on
+  // screen, e.g. "Buh"). Numbers items have neither, so both fall back to
   // spokenWord — same value they already used, unchanged behavior.
-  const pronunciationText = item?.ttsText || item?.spokenWord
+  const ttsSpokenText = item?.ttsSpelling || item?.spokenWord
+  const displayLabel = item?.phonicLabel || (item ? item.spokenWord[0].toUpperCase() + item.spokenWord.slice(1) : '')
   const cancelSpeechRef = useRef(null)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -129,7 +131,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
     strikesRef.current = 0
     setNoAttempt(false)
     const cancel = speakRepeated(
-      pronunciationText,
+      ttsSpokenText,
       settings.repetitions,
       { rate: settings.speechRate },
       () => setPhase('READY')
@@ -184,7 +186,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
   const handleListen = () => {
     if (busyRef.current) return
     if (phase !== 'READY' && phase !== 'RETRY') return
-    speakOnce(pronunciationText, { rate: settings.speechRate })
+    speakOnce(ttsSpokenText, { rate: settings.speechRate })
   }
 
   const handleSpeak = async () => {
@@ -267,7 +269,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
         }>
           {item.display}
         </div>
-        <p className="number-word">{pronunciationText[0].toUpperCase() + pronunciationText.slice(1)}</p>
+        <p className="number-word">{displayLabel}</p>
 
         {phase === 'SUCCESS' && (
           <>

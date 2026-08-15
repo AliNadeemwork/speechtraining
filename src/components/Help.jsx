@@ -29,6 +29,9 @@ export function MouthAnimation({ shape }) {
 export function HelpModal({ item, onClose }) {
   const [videoError, setVideoError] = useState(false)
   const videoSrc = !videoError ? mouthVideoFor(item.id) : null
+  // Alphabet items show the pedagogical phonic label (e.g. "Buh"); Numbers
+  // items have no phonicLabel and fall back to spokenWord, unchanged.
+  const label = item.phonicLabel || item.spokenWord
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -38,9 +41,9 @@ export function HelpModal({ item, onClose }) {
 
   return (
     <div className="help-backdrop" onClick={onClose}>
-      <div className="help-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Help for ${item.spokenWord}`}>
+      <div className="help-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Help for ${label}`}>
         <button className="help-close" onClick={onClose} aria-label="Close help">×</button>
-        <h3 className="help-title">How to say "{item.spokenWord}"</h3>
+        <h3 className="help-title">How to say "{label}"</h3>
 
         {videoSrc ? (
           <video
