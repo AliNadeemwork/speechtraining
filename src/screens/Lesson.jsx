@@ -42,6 +42,11 @@ export default function Lesson({ sectionId, settings, onExit }) {
   }, [section, activeItems.length, onExit])
 
   const item = activeItems[Math.min(index, Math.max(activeItems.length - 1, 0))]
+  // Alphabet items carry a dedicated ttsText (the phonetically-correct
+  // spelling to speak/display, which can differ from the raw display
+  // letter). Numbers items have no ttsText, so this falls back to
+  // spokenWord — same value they already used, unchanged behavior.
+  const pronunciationText = item?.ttsText || item?.spokenWord
   const cancelSpeechRef = useRef(null)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -124,7 +129,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
     strikesRef.current = 0
     setNoAttempt(false)
     const cancel = speakRepeated(
-      item.spokenWord,
+      pronunciationText,
       settings.repetitions,
       { rate: settings.speechRate },
       () => setPhase('READY')
@@ -179,7 +184,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
   const handleListen = () => {
     if (busyRef.current) return
     if (phase !== 'READY' && phase !== 'RETRY') return
-    speakOnce(item.spokenWord, { rate: settings.speechRate })
+    speakOnce(pronunciationText, { rate: settings.speechRate })
   }
 
   const handleSpeak = async () => {
@@ -262,7 +267,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
         }>
           {item.display}
         </div>
-        <p className="number-word">{item.spokenWord[0].toUpperCase() + item.spokenWord.slice(1)}</p>
+        <p className="number-word">{pronunciationText[0].toUpperCase() + pronunciationText.slice(1)}</p>
 
         {phase === 'SUCCESS' && (
           <>

@@ -13,7 +13,13 @@ const DIGIT_WORDS = {
 function normalize(text) {
   let t = (text || '').toLowerCase().trim().replace(/[^a-z0-9\s]/g, '')
   if (DIGIT_WORDS[t]) t = DIGIT_WORDS[t] // map a bare digit ("3") to its word form
-  return t
+  // Collapse all whitespace away — a single-target answer (a number, a
+  // letter) must never be split into multiple tokens for comparison (e.g.
+  // Vosk returning "a r" for the letter R). Applied identically to both
+  // the recognized text and every target/variant string below, so a
+  // legitimately multi-word target like "double you" (W) still matches
+  // itself consistently — it just becomes "doubleyou" on both sides.
+  return t.replace(/\s+/g, '')
 }
 
 function editDistance(a, b) {
