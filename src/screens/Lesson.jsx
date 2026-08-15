@@ -42,12 +42,12 @@ export default function Lesson({ sectionId, settings, onExit }) {
   }, [section, activeItems.length, onExit])
 
   const item = activeItems[Math.min(index, Math.max(activeItems.length - 1, 0))]
-  // Alphabet items carry ttsSpelling (what's actually spoken — a real word
-  // chosen for correct TTS pronunciation and reliable Vosk recognition,
-  // see data/alphabets.js) and phonicLabel (the pedagogical label shown on
-  // screen, e.g. "Buh"). Numbers items have neither, so both fall back to
+  // Alphabet items carry phonicLabel (e.g. "Bah") — shown on screen AND
+  // spoken by TTS, the pure phonic sound with no real-word substitution.
+  // spokenWord is the same sound lowercased (also the recognizer's grammar
+  // target). Numbers items have no phonicLabel, so both fall back to
   // spokenWord — same value they already used, unchanged behavior.
-  const ttsSpokenText = item?.ttsSpelling || item?.spokenWord
+  const ttsSpokenText = item?.spokenWord
   const displayLabel = item?.phonicLabel || (item ? item.spokenWord[0].toUpperCase() + item.spokenWord.slice(1) : '')
   const cancelSpeechRef = useRef(null)
   const videoRef = useRef(null)

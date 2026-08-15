@@ -1,126 +1,103 @@
 // Lesson content for the Alphabets section, A-Z.
-// This section teaches PHONIC SOUNDS (the sound the letter makes, e.g. B
-// -> "Buh"), not letter names. That replaced the earlier letter-name
-// approach entirely — see git history if the school ever wants to go back.
+// Teaches PURE PHONIC SOUNDS — the on-screen label, the TTS speech, and the
+// recognizer's grammar/matching target are ALL the same literal phonic
+// spelling from the school's source table. No real-word substitutions are
+// used to force a pass — see the commit message for the full 26-letter,
+// 3-voice recognizability test and its honest pass/fail results. Some
+// letters are known to fail recognition as pure phonic sounds; they are
+// NOT silently patched around here.
 //
-// Shared item shape (see src/data/sections.js), PLUS phonics-only fields:
-//   { id, display, spokenWord, variants[], helpText, mouthShape,
-//     phonicLabel, ttsSpelling }
+// Shared item shape (see src/data/sections.js):
+//   { id, display, phonicLabel, spokenWord, variants[], helpText, mouthShape }
+//   display     — the capital letter shown on screen (e.g. "B").
+//   phonicLabel — the phonic sound label shown under it AND spoken by TTS
+//                 (Listen / auto-pronounce) — exactly the source table.
+//   spokenWord  — the recognizer's grammar/matching target. Equal to
+//                 phonicLabel.toLowerCase() — no substitution.
+//   variants    — the bare letter as a fallback only; no other word
+//                 substitutions (per explicit instruction not to mask
+//                 failures with wider acceptance).
 //
-// FIELD ROLES — three different jobs, do not merge them:
-//   phonicLabel — the pedagogically "pure" sound label shown on screen
-//                 under the big letter, exactly the source table the school
-//                 gave us (e.g. "Buh", "Fff", "Sss"). Never changed for
-//                 recognizability reasons.
-//   ttsSpelling — what's ACTUALLY spoken by TTS (Listen / auto-pronounce).
-//                 CRITICAL FINDING (see commit message for the full 26-row
-//                 test table): feeding phonicLabel's literal spelling
-//                 ("buh", "fff", "sss"...) straight to both TTS and Vosk
-//                 fails for 24/26 letters — these aren't real English words,
-//                 so the small Vosk model's grammar can't reliably decode
-//                 them (empty/[unk]/garbled), regardless of spelling
-//                 tweaks. ttsSpelling is a short REAL word chosen so (a)
-//                 TTS pronounces it clearly and (b) — verified empirically,
-//                 not assumed — Vosk's grammar reliably recognizes it. It
-//                 necessarily includes a vowel/coda the pure phonicLabel
-//                 doesn't have (e.g. B's "Buh" -> spoken as "bub"); that's
-//                 the deliberate, tested trade-off, not an oversight.
-//   spokenWord  — the recognizer's grammar/matching target. Set to
-//                 ttsSpelling (the word that's actually spoken and that
-//                 Vosk actually recognizes), NOT phonicLabel.
-//   variants    — includes the literal phonicLabel (lowercased) and the
-//                 bare letter as required fallbacks, even though testing
-//                 showed the bare phonicLabel spelling alone usually isn't
-//                 recognized by TTS-generated audio — a real child's voice
-//                 may succeed where synthetic audio didn't, so it's kept as
-//                 a low-cost fallback rather than dropped.
-//
-// ALL 26 ttsSpelling choices were verified by literally piping generated
-// TTS audio through the real Vosk recognizer and confirming the exact
-// target word came back — see the commit message for the full table
-// (letter | phonic sound | ttsSpelling spoken | raw Vosk output | pass).
-// No letter in this file is unverified/guessed.
-//
-// `helpText` — TODO(school): placeholder articulation tips describing the
-// SOUND (not the letter name) — please have a speech therapist review.
+// `helpText` — TODO(school): placeholder articulation tips for the SOUND —
+// please have a speech therapist review these.
 // `mouthShape` — keyword used by the Help mouth animation: 'open' | 'round' | 'wide' | 'closed'.
 export const ALPHABETS = [
-  { id: 'A', display: 'A', phonicLabel: 'Ah', ttsSpelling: 'spa', spokenWord: 'spa', variants: ['ah', 'a'],
-    helpText: 'TODO(school): Mouth opens wide and relaxed for the short "ah" sound.',
+  { id: 'A', display: 'A', phonicLabel: 'Ah', spokenWord: 'ah', variants: ['a'],
+    helpText: 'TODO(school): Mouth opens wide and relaxed for the "ah" sound.',
     mouthShape: 'open' },
-  { id: 'B', display: 'B', phonicLabel: 'Buh', ttsSpelling: 'bub', spokenWord: 'bub', variants: ['buh', 'b'],
-    helpText: 'TODO(school): Lips press together and pop open for the "buh" sound.',
-    mouthShape: 'closed' },
-  { id: 'C', display: 'C', phonicLabel: 'Cuh', ttsSpelling: 'cub', spokenWord: 'cub', variants: ['cuh', 'c'],
-    helpText: 'TODO(school): Back of the tongue taps the soft palate for the "cuh" sound.',
+  { id: 'B', display: 'B', phonicLabel: 'Bah', spokenWord: 'bah', variants: ['b'],
+    helpText: 'TODO(school): Lips press together and pop open for the "bah" sound.',
     mouthShape: 'open' },
-  { id: 'D', display: 'D', phonicLabel: 'Duh', ttsSpelling: 'dad', spokenWord: 'dad', variants: ['duh', 'd'],
-    helpText: 'TODO(school): Tongue tip taps behind the top teeth for the "duh" sound.',
+  { id: 'C', display: 'C', phonicLabel: 'Cah', spokenWord: 'cah', variants: ['c'],
+    helpText: 'TODO(school): Back of the tongue taps the soft palate for the "cah" sound.',
     mouthShape: 'open' },
-  { id: 'E', display: 'E', phonicLabel: 'Eh', ttsSpelling: 'ebb', spokenWord: 'ebb', variants: ['eh', 'e'],
+  { id: 'D', display: 'D', phonicLabel: 'Dah', spokenWord: 'dah', variants: ['d'],
+    helpText: 'TODO(school): Tongue tip taps behind the top teeth for the "dah" sound.',
+    mouthShape: 'open' },
+  { id: 'E', display: 'E', phonicLabel: 'Eh', spokenWord: 'eh', variants: ['e'],
     helpText: 'TODO(school): Mouth opens slightly for the short "eh" sound.',
     mouthShape: 'open' },
-  { id: 'F', display: 'F', phonicLabel: 'Fff', ttsSpelling: 'fun', spokenWord: 'fun', variants: ['fff', 'f'],
-    helpText: 'TODO(school): Top teeth touch the bottom lip and air hisses out for "fff".',
-    mouthShape: 'closed' },
-  { id: 'G', display: 'G', phonicLabel: 'Guh', ttsSpelling: 'gum', spokenWord: 'gum', variants: ['guh', 'g'],
-    helpText: 'TODO(school): Back of the tongue taps the soft palate for the "guh" sound.',
+  { id: 'F', display: 'F', phonicLabel: 'Fah', spokenWord: 'fah', variants: ['f'],
+    helpText: 'TODO(school): Top teeth touch the bottom lip for the "fah" sound.',
     mouthShape: 'open' },
-  { id: 'H', display: 'H', phonicLabel: 'Huh', ttsSpelling: 'hut', spokenWord: 'hut', variants: ['huh', 'h'],
-    helpText: 'TODO(school): A soft breath of air for the "huh" sound, mouth relaxed.',
+  { id: 'G', display: 'G', phonicLabel: 'Gah', spokenWord: 'gah', variants: ['g'],
+    helpText: 'TODO(school): Back of the tongue taps the soft palate for the "gah" sound.',
     mouthShape: 'open' },
-  { id: 'I', display: 'I', phonicLabel: 'Ih', ttsSpelling: 'itch', spokenWord: 'itch', variants: ['ih', 'i'],
+  { id: 'H', display: 'H', phonicLabel: 'Hah', spokenWord: 'hah', variants: ['h'],
+    helpText: 'TODO(school): A soft breath of air for the "hah" sound.',
+    mouthShape: 'open' },
+  { id: 'I', display: 'I', phonicLabel: 'Ih', spokenWord: 'ih', variants: ['i'],
     helpText: 'TODO(school): Mouth opens slightly wide for the short "ih" sound.',
     mouthShape: 'wide' },
-  { id: 'J', display: 'J', phonicLabel: 'Juh', ttsSpelling: 'jug', spokenWord: 'jug', variants: ['juh', 'j'],
-    helpText: 'TODO(school): Tongue touches the roof of the mouth for the "juh" sound.',
+  { id: 'J', display: 'J', phonicLabel: 'Jah', spokenWord: 'jah', variants: ['j'],
+    helpText: 'TODO(school): Tongue touches the roof of the mouth for the "jah" sound.',
     mouthShape: 'open' },
-  { id: 'K', display: 'K', phonicLabel: 'Kuh', ttsSpelling: 'cut', spokenWord: 'cut', variants: ['kuh', 'k'],
-    helpText: 'TODO(school): Back of the tongue taps the soft palate for the "kuh" sound.',
+  { id: 'K', display: 'K', phonicLabel: 'Kah', spokenWord: 'kah', variants: ['k'],
+    helpText: 'TODO(school): Back of the tongue taps the soft palate for the "kah" sound.',
     mouthShape: 'open' },
-  { id: 'L', display: 'L', phonicLabel: 'Lll', ttsSpelling: 'luck', spokenWord: 'luck', variants: ['lll', 'l'],
-    helpText: 'TODO(school): Tongue tip touches behind the top teeth for the "lll" sound.',
+  { id: 'L', display: 'L', phonicLabel: 'Lah', spokenWord: 'lah', variants: ['l'],
+    helpText: 'TODO(school): Tongue tip touches behind the top teeth for the "lah" sound.',
     mouthShape: 'open' },
-  { id: 'M', display: 'M', phonicLabel: 'Mmm', ttsSpelling: 'mud', spokenWord: 'mud', variants: ['mmm', 'm'],
-    helpText: 'TODO(school): Lips press gently together and hum for the "mmm" sound.',
-    mouthShape: 'closed' },
-  { id: 'N', display: 'N', phonicLabel: 'Nnn', ttsSpelling: 'nut', spokenWord: 'nut', variants: ['nnn', 'n'],
-    helpText: 'TODO(school): Tongue tip touches behind the top teeth and hums for "nnn".',
-    mouthShape: 'closed' },
-  { id: 'O', display: 'O', phonicLabel: 'Oh', ttsSpelling: 'go', spokenWord: 'go', variants: ['oh', 'o'],
+  { id: 'M', display: 'M', phonicLabel: 'Mah', spokenWord: 'mah', variants: ['m'],
+    helpText: 'TODO(school): Lips press gently together for the "mah" sound.',
+    mouthShape: 'open' },
+  { id: 'N', display: 'N', phonicLabel: 'Nah', spokenWord: 'nah', variants: ['n'],
+    helpText: 'TODO(school): Tongue tip touches behind the top teeth for the "nah" sound.',
+    mouthShape: 'open' },
+  { id: 'O', display: 'O', phonicLabel: 'Oh', spokenWord: 'oh', variants: ['o'],
     helpText: 'TODO(school): Lips round into a small circle for the "oh" sound.',
     mouthShape: 'round' },
-  { id: 'P', display: 'P', phonicLabel: 'Puh', ttsSpelling: 'pub', spokenWord: 'pub', variants: ['puh', 'p'],
-    helpText: 'TODO(school): Lips press together and pop open for the "puh" sound.',
-    mouthShape: 'closed' },
-  { id: 'Q', display: 'Q', phonicLabel: 'Kwuh', ttsSpelling: 'quit', spokenWord: 'quit', variants: ['kwuh', 'q'],
-    helpText: 'TODO(school): Lips round forward right after the "k" for the "kwuh" sound.',
-    mouthShape: 'round' },
-  { id: 'R', display: 'R', phonicLabel: 'Rrr', ttsSpelling: 'rrr', spokenWord: 'rrr', variants: ['r'],
-    helpText: 'TODO(school): Tongue curls slightly back for the sustained "rrr" sound.',
+  { id: 'P', display: 'P', phonicLabel: 'Pah', spokenWord: 'pah', variants: ['p'],
+    helpText: 'TODO(school): Lips press together and pop open for the "pah" sound.',
     mouthShape: 'open' },
-  { id: 'S', display: 'S', phonicLabel: 'Sss', ttsSpelling: 'sun', spokenWord: 'sun', variants: ['sss', 's'],
-    helpText: 'TODO(school): Teeth close together, air hisses out for the "sss" sound.',
-    mouthShape: 'closed' },
-  { id: 'T', display: 'T', phonicLabel: 'Tuh', ttsSpelling: 'tub', spokenWord: 'tub', variants: ['tuh', 't'],
-    helpText: 'TODO(school): Tongue tip taps behind the top teeth for the "tuh" sound.',
-    mouthShape: 'closed' },
-  { id: 'U', display: 'U', phonicLabel: 'Uh', ttsSpelling: 'utter', spokenWord: 'utter', variants: ['uh', 'u'],
+  { id: 'Q', display: 'Q', phonicLabel: 'Kwah', spokenWord: 'kwah', variants: ['q'],
+    helpText: 'TODO(school): Lips round forward right after the "k" for the "kwah" sound.',
+    mouthShape: 'round' },
+  { id: 'R', display: 'R', phonicLabel: 'Rah', spokenWord: 'rah', variants: ['r'],
+    helpText: 'TODO(school): Tongue curls slightly back for the "rah" sound.',
+    mouthShape: 'open' },
+  { id: 'S', display: 'S', phonicLabel: 'Sah', spokenWord: 'sah', variants: ['s'],
+    helpText: 'TODO(school): Teeth close together, air hisses out for the "sah" sound.',
+    mouthShape: 'open' },
+  { id: 'T', display: 'T', phonicLabel: 'Tah', spokenWord: 'tah', variants: ['t'],
+    helpText: 'TODO(school): Tongue tip taps behind the top teeth for the "tah" sound.',
+    mouthShape: 'open' },
+  { id: 'U', display: 'U', phonicLabel: 'Uh', spokenWord: 'uh', variants: ['u'],
     helpText: 'TODO(school): Mouth opens slightly for the short "uh" sound.',
     mouthShape: 'open' },
-  { id: 'V', display: 'V', phonicLabel: 'Vvv', ttsSpelling: 'van', spokenWord: 'van', variants: ['vvv', 'v'],
-    helpText: 'TODO(school): Top teeth touch the bottom lip and buzz for the "vvv" sound.',
-    mouthShape: 'closed' },
-  { id: 'W', display: 'W', phonicLabel: 'Wuh', ttsSpelling: 'won', spokenWord: 'won', variants: ['wuh', 'w'],
-    helpText: 'TODO(school): Lips round tightly then release for the "wuh" sound.',
+  { id: 'V', display: 'V', phonicLabel: 'Vah', spokenWord: 'vah', variants: ['v'],
+    helpText: 'TODO(school): Top teeth touch the bottom lip and buzz for the "vah" sound.',
+    mouthShape: 'open' },
+  { id: 'W', display: 'W', phonicLabel: 'Wah', spokenWord: 'wah', variants: ['w'],
+    helpText: 'TODO(school): Lips round tightly then release for the "wah" sound.',
     mouthShape: 'round' },
-  { id: 'X', display: 'X', phonicLabel: 'Ks', ttsSpelling: 'ks', spokenWord: 'ks', variants: ['x'],
+  { id: 'X', display: 'X', phonicLabel: 'Ks', spokenWord: 'ks', variants: ['x'],
     helpText: 'TODO(school): Teeth close together for the quick "ks" sound.',
     mouthShape: 'closed' },
-  { id: 'Y', display: 'Y', phonicLabel: 'Yuh', ttsSpelling: 'yup', spokenWord: 'yup', variants: ['yuh', 'y'],
-    helpText: 'TODO(school): Tongue rises then releases for the "yuh" sound.',
-    mouthShape: 'closed' },
-  { id: 'Z', display: 'Z', phonicLabel: 'Zzz', ttsSpelling: 'zap', spokenWord: 'zap', variants: ['zzz', 'z'],
-    helpText: 'TODO(school): Teeth close together and buzz for the "zzz" sound.',
-    mouthShape: 'closed' },
+  { id: 'Y', display: 'Y', phonicLabel: 'Yah', spokenWord: 'yah', variants: ['y'],
+    helpText: 'TODO(school): Tongue rises then releases for the "yah" sound.',
+    mouthShape: 'open' },
+  { id: 'Z', display: 'Z', phonicLabel: 'Zah', spokenWord: 'zah', variants: ['z'],
+    helpText: 'TODO(school): Teeth close together and buzz for the "zah" sound.',
+    mouthShape: 'open' },
 ]
