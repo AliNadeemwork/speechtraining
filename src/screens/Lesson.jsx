@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import logo from '../assets/logo.png'
 import { getSection } from '../data/sections'
 import { speakRepeated, speakOnce } from '../lib/tts'
-import { initModel, setGrammar, startListening, stopListening, abortListening, isSupported } from '../lib/recognition'
+import { init, listen, stop, isSupported, isReady } from '../lib/recognition'
 import { evaluate } from '../lib/evaluate'
+import { evaluatePhoneme } from '../lib/phonemeEvaluator'
 import { playApplause } from '../lib/applause'
 import { Mirror, SpeakerIcon, MicIcon, ExitXIcon } from '../components/ui'
 import { HelpModal } from '../components/Help'
@@ -17,6 +18,12 @@ const MAX_STRIKES = 3
 //   | GOOD_EFFORT (an [unk] attempt, or the 3rd consecutive fail) → auto-advance
 // SUCCESS → auto-advance (or wait for Next if auto-advance is off) → INTRO
 // of next item in the section; after the last one → back to Section Select.
+//
+// Numbers uses 'word' mode (Vosk grammar matching); Alphabets uses
+// 'phoneme' mode (Wav2Vec2 CTC) — see data/sections.js `mode` and
+// lib/recognition.js. This screen doesn't otherwise care which engine is
+// behind listen(); it only branches on `section.mode` for the couple of
+// spots where the two modes need different config/evaluation.
 
 export default function Lesson({ sectionId, settings, onExit }) {
   const section = useMemo(() => getSection(sectionId), [sectionId])
@@ -42,12 +49,10 @@ export default function Lesson({ sectionId, settings, onExit }) {
   }, [section, activeItems.length, onExit])
 
   const item = activeItems[Math.min(index, Math.max(activeItems.length - 1, 0))]
-  // Alphabet items carry phonicLabel (e.g. "Bah") — shown on screen AND
-  // spoken by TTS, the pure phonic sound with no real-word substitution.
-  // spokenWord is the same sound lowercased (also the recognizer's grammar
-  // target). Numbers items have no phonicLabel, so both fall back to
-  // spokenWord — same value they already used, unchanged behavior.
-  const ttsSpokenText = item?.spokenWord
+  // Numbers items are spoken via spokenWord (e.g. "three"); Alphabets items
+  // via phonicLabel (e.g. "Buh") — the pure phonic sound, spoken as-is, no
+  // real-word substitution. Both are also what's shown on screen.
+  const ttsSpokenText = item?.phonicLabel || item?.spokenWord
   const displayLabel = item?.phonicLabel || (item ? item.spokenWord[0].toUpperCase() + item.spokenWord.slice(1) : '')
   const cancelSpeechRef = useRef(null)
   const videoRef = useRef(null)
@@ -94,33 +99,30 @@ export default function Lesson({ sectionId, settings, onExit }) {
     }
   }, [mirrorStatus])
 
-  // Vosk model load (once) + grammar for this section's word list.
-  // Speak stays disabled until this resolves — never listen before ready.
+  // Load this section's engine (word or phoneme) once. Speak stays disabled
+  // until this resolves — never listen before ready. Both engines can be
+  // warm at once (switching sections doesn't discard the other one).
   useEffect(() => {
     if (!section) return
     let cancelled = false
     if (!isSupported()) { setModelReady(false); return }
-    initModel('en')
-      .then(() => {
-        if (cancelled) return
-        setGrammar(section.items.map(i => i.spokenWord))
-        setModelReady(true)
-      })
+    init(section.mode)
+      .then(() => { if (!cancelled) setModelReady(true) })
       .catch(() => { if (!cancelled) setModelReady(false) })
     return () => { cancelled = true }
   }, [section])
 
   // Stop mic/camera/speech on unmount AND on Exit (Exit calls onExit, which
-  // unmounts this screen). The Vosk model itself is kept loaded across
-  // section switches within the session — reloading ~40MB every time the
-  // child moves between Numbers and Alphabets would be a bad trade for a
-  // cleanup guarantee that abortListening() already satisfies (it tears
-  // down the mic stream and in-flight recognition immediately).
+  // unmounts this screen). Loaded engines are kept warm across section
+  // switches within the session — reloading a ~300MB phoneme model every
+  // time the child moves between Numbers and Alphabets would be a bad trade
+  // for a cleanup guarantee that stop() already satisfies (it tears down
+  // the mic stream and in-flight recognition immediately).
   useEffect(() => {
     return () => {
       cleanupSpeech()
       window.speechSynthesis?.cancel()
-      abortListening()
+      stop()
       streamRef.current?.getTracks().forEach(t => t.stop())
     }
   }, [cleanupSpeech])
@@ -179,7 +181,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
   const exit = () => {
     if (!window.confirm('Exit this lesson and choose another?')) return
     cleanupSpeech()
-    abortListening()
+    stop()
     onExit()
   }
 
@@ -199,20 +201,24 @@ export default function Lesson({ sectionId, settings, onExit }) {
     setPhase('LISTENING')
 
     try {
-      await startListening()
-      const word = await stopListening()
+      const config = section.mode === 'word'
+        ? { mode: 'word', target: item.spokenWord, allowedWords: section.items.map(i => i.spokenWord), language: 'en' }
+        : { mode: 'phoneme', target: item.id, language: 'en' }
+      const result = await listen(config)
       busyRef.current = false
 
       // No speech was ever detected (silence/mic issue) — this is not a
       // failed attempt, just nothing to judge. Don't count it as a strike.
-      if (word === '[noattempt]') {
+      if (result === '[noattempt]') {
         setNoAttempt(true)
         setPhase('READY')
         return
       }
       setNoAttempt(false)
 
-      const { isCorrect } = evaluate(word, item, settings)
+      const { isCorrect } = section.mode === 'word'
+        ? evaluate(result, item, settings)
+        : evaluatePhoneme(result, item, settings)
       if (isCorrect) {
         strikesRef.current = 0
         setPhase('SUCCESS')
@@ -220,7 +226,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
       }
 
       strikesRef.current += 1
-      if (word === '[unk]' || strikesRef.current >= MAX_STRIKES) {
+      if (result === '[unk]' || strikesRef.current >= MAX_STRIKES) {
         setPhase('GOOD_EFFORT')
       } else {
         setPhase('RETRY')
