@@ -22,7 +22,7 @@ export default function SectionSelect({ onSelect, onExit }) {
       </header>
 
       <div className="section-select-body">
-        {SECTIONS.map(section => (
+        {SECTIONS.filter(section => !section.hidden).map(section => (
           <button
             key={section.id}
             className="section-card"

@@ -6,7 +6,14 @@
 // sound. Adding a new section means adding one more entry here with its own
 // data file — Lesson.jsx and the recognizer are both parameterized by
 // section, not hardcoded to numbers.
+//
+// `hidden: true` keeps a section out of the Section Select chooser (see
+// screens/SectionSelect.jsx) without removing its code/data — used here to
+// hold back Alphabets (phoneme recognition quality not yet reliable enough
+// for a client-facing build; see PHONICS_RESEARCH_BRIEF.md) while keeping
+// it easy to re-enable later (just delete the `hidden` line).
 import { NUMBERS } from './numbers'
+import { TENS } from './tens'
 import { ALPHABETS } from './alphabets'
 
 export const SECTIONS = [
@@ -19,12 +26,21 @@ export const SECTIONS = [
     mode: 'word',
   },
   {
+    id: 'tens',
+    label: 'Count by 10s',
+    subtitle: 'Count by 10s',
+    items: TENS,
+    hasRange: false,
+    mode: 'word',
+  },
+  {
     id: 'alphabets',
     label: 'Alphabets',
     subtitle: 'Alphabets',
     items: ALPHABETS,
     hasRange: false,
     mode: 'phoneme',
+    hidden: true,
   },
 ]
 

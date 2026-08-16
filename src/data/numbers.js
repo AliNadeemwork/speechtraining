@@ -1,4 +1,4 @@
-// Lesson content for the Numbers section, 1-10.
+// Lesson content for the Numbers section, 1-20.
 // Shared item shape (see src/data/sections.js):
 //   { id, display, spokenWord, variants[], helpText, mouthShape }
 //
@@ -62,5 +62,55 @@ export const NUMBERS = [
     id: 10, display: '10', spokenWord: 'ten', variants: ['tan', 'den', 'then', 'tin'],
     helpText: 'TODO(school): Tongue tip taps behind the top teeth for "t", mouth stays relaxed and slightly open for "en".',
     mouthShape: 'closed',
+  },
+  {
+    id: 11, display: '11', spokenWord: 'eleven', variants: ['leven', 'eleben'],
+    helpText: 'TODO(school): Mouth opens wide for "eh", tongue tip taps for "l", then relaxes into "-even".',
+    mouthShape: 'open',
+  },
+  {
+    id: 12, display: '12', spokenWord: 'twelve', variants: ['twelf', 'twelb'],
+    helpText: 'TODO(school): Lips round briefly for "tw", tongue tip taps for "l", teeth close for the final "v".',
+    mouthShape: 'round',
+  },
+  {
+    id: 13, display: '13', spokenWord: 'thirteen', variants: ['thirdeen', 'firteen'],
+    helpText: 'TODO(school): Tongue tip pokes between the teeth for "th", then mouth spreads wide for "-teen".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 14, display: '14', spokenWord: 'fourteen', variants: ['forteen', 'fordeen'],
+    helpText: 'TODO(school): Lips round for "four", then mouth spreads wide for "-teen".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 15, display: '15', spokenWord: 'fifteen', variants: ['fifdeen', 'fivteen'],
+    helpText: 'TODO(school): Top teeth touch bottom lip for "f", then mouth spreads wide for "-teen".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 16, display: '16', spokenWord: 'sixteen', variants: ['sixdeen', 'sicteen'],
+    helpText: 'TODO(school): Teeth close for "s", then mouth spreads wide for "-teen".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 17, display: '17', spokenWord: 'seventeen', variants: ['sevendeen', 'sebenteen'],
+    helpText: 'TODO(school): Smile wide for "s", bottom lip touches top teeth for "v", then wide for "-teen".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 18, display: '18', spokenWord: 'eighteen', variants: ['aydeen', 'ateen'],
+    helpText: 'TODO(school): Mouth opens then narrows for "ay", tongue taps for "t", then wide for "-teen".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 19, display: '19', spokenWord: 'nineteen', variants: ['ninedeen', 'nineteen'],
+    helpText: 'TODO(school): Tongue taps for "n", mouth opens wide for "eye", then wide again for "-teen".',
+    mouthShape: 'wide',
+  },
+  {
+    id: 20, display: '20', spokenWord: 'twenty', variants: ['twendy', 'twenny'],
+    helpText: 'TODO(school): Lips round briefly for "tw", tongue taps twice for "-enty".',
+    mouthShape: 'round',
   },
 ]

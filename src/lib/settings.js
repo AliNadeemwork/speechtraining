@@ -20,7 +20,7 @@ const DEFAULTS = {
   speechRate: 0.75,      // TTS speed (0.5 slow – 1.0 normal)
   repetitions: 3,        // times each item is pronounced on lesson start
   rangeMin: 1,            // active number range (Numbers section only)
-  rangeMax: 10,
+  rangeMax: 20,
   autoAdvance: true,      // auto move to next item after a correct answer
 }
 
