@@ -1,41 +1,27 @@
 // Text-to-speech via the browser's speechSynthesis.
 // Speaks a word `times` times with a pause between repetitions.
-// Returns a cancel function; invokes onDone when all repetitions finish.
+// Returns a cancel function; resolves the onDone callback when finished
+// or cancelled.
 
-const voiceCache = {}
+let voiceCache = null
 
-function pickVoice(lang) {
-  if (voiceCache[lang] !== undefined) return voiceCache[lang]
+function pickVoice() {
+  if (voiceCache) return voiceCache
   const voices = window.speechSynthesis?.getVoices?.() || []
-  const base = lang.split('-')[0]
-  const direct =
-    voices.find(v => v.lang === lang && /female|natural|google/i.test(v.name)) ||
-    voices.find(v => v.lang === lang) ||
-    voices.find(v => v.lang?.startsWith(base))
-  // No installed voice for the requested language (e.g. no Urdu voice on
-  // this device/browser — confirmed to be the common case right now) must
-  // still fall back to SOME voice, or several browsers (Chrome in
-  // particular) silently refuse to speak at all instead of using a default.
-  // The fallback specifically reuses whichever voice successfully speaks
-  // 'en-US' (confirmed working) rather than voices.find(v=>v.default) /
-  // voices[0] — some listed voices (e.g. "Daniel (English UK)" on this
-  // exact setup) report a full start/end lifecycle with zero actual audio,
-  // a known quirk of voices that are listed by the OS but not fully
-  // installed/downloaded. Falling back to the SAME voice English already
-  // uses successfully avoids landing on one of those broken entries.
-  const found = direct || (lang === 'en-US' ? null : pickVoice('en-US'))
-  voiceCache[lang] = found
-  return found
+  voiceCache =
+    voices.find(v => v.lang === 'en-US' && /female|natural|google/i.test(v.name)) ||
+    voices.find(v => v.lang === 'en-US') ||
+    voices.find(v => v.lang?.startsWith('en')) ||
+    null
+  return voiceCache
 }
 
 // Voices load asynchronously on some browsers.
 if (typeof window !== 'undefined' && window.speechSynthesis) {
-  window.speechSynthesis.onvoiceschanged = () => {
-    for (const key of Object.keys(voiceCache)) delete voiceCache[key]
-  }
+  window.speechSynthesis.onvoiceschanged = () => { voiceCache = null; pickVoice() }
 }
 
-export function speakRepeated(word, times, { rate = 0.75, gapMs = 900, lang = 'en-US' } = {}, onDone) {
+export function speakRepeated(word, times, { rate = 0.75, gapMs = 900 } = {}, onDone) {
   const synth = window.speechSynthesis
   if (!synth) { onDone?.(); return () => {} }
 
@@ -47,13 +33,9 @@ export function speakRepeated(word, times, { rate = 0.75, gapMs = 900, lang = 'e
     if (remaining <= 0) { onDone?.(); return }
 
     const u = new SpeechSynthesisUtterance(word)
-    const v = pickVoice(lang)
+    const v = pickVoice()
     if (v) u.voice = v
-    // Match the utterance's lang to whatever voice actually got picked —
-    // if that's a fallback voice for a different language (see pickVoice),
-    // keeping u.lang set to the ORIGINAL unsupported language is exactly
-    // what causes some browsers to refuse to speak at all.
-    u.lang = v?.lang || lang
+    u.lang = 'en-US'
     u.rate = rate
     u.pitch = 1.05
     u.onend = () => {
@@ -85,6 +67,7 @@ export function speakRepeated(word, times, { rate = 0.75, gapMs = 900, lang = 'e
     cancelled = true
     clearTimeout(timer)
     synth.cancel()
+    onDone?.()
   }
 }
 

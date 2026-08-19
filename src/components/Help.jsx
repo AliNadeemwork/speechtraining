@@ -29,11 +29,9 @@ export function MouthAnimation({ shape }) {
 export function HelpModal({ item, onClose }) {
   const [videoError, setVideoError] = useState(false)
   const videoSrc = !videoError ? mouthVideoFor(item.id) : null
-  // Alphabet items show the pedagogical phonic label (e.g. "Buh"); Urdu
-  // items have neither phonicLabel nor spokenWord and fall back to
-  // spokenTarget (the Urdu-script letter name); Numbers items fall back to
-  // spokenWord, unchanged.
-  const label = item.phonicLabel || item.spokenWord || item.spokenTarget
+  // Alphabet items show the pedagogical phonic label (e.g. "Buh"); Numbers
+  // items have no phonicLabel and fall back to spokenWord, unchanged.
+  const label = item.phonicLabel || item.spokenWord
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
