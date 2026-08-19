@@ -310,6 +310,7 @@ function createPhonemeEngine() {
   let nextId = 1
   let busy = false
   let currentAbort = null
+  let workerErrorHandler = null
 
   function getWorker() {
     if (!worker) {
@@ -463,10 +464,21 @@ function createUrduEngine() {
   let nextId = 1
   let busy = false
   let currentAbort = null
+  let workerErrorHandler = null
 
   function getWorker() {
     if (!worker) {
       worker = new Worker(new URL('./whisperWorker.js', import.meta.url), { type: 'module' })
+      workerErrorHandler = () => {
+        worker?.terminate()
+        worker = null
+        readyPromise = null
+        ready = false
+        busy = false
+        currentAbort?.()
+        currentAbort = null
+      }
+      worker.addEventListener('error', workerErrorHandler)
     }
     return worker
   }
@@ -582,8 +594,10 @@ function createUrduEngine() {
   }
 
   function terminate() {
+    if (worker && workerErrorHandler) worker.removeEventListener('error', workerErrorHandler)
     worker?.terminate()
     worker = null
+    workerErrorHandler = null
     readyPromise = null
     ready = false
     busy = false

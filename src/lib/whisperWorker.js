@@ -19,12 +19,11 @@ env.backends.onnx.wasm.wasmPaths =
 env.backends.onnx.wasm.numThreads = 1
 env.allowLocalModels = false
 
-// Single constant to swap models — see PHONICS_RESEARCH_BRIEF-style proof
-// table in data/urdu.js's header comment for why whisper-base was picked
-// over whisper-tiny (tiny is faster/smaller but noticeably less accurate on
-// short single-word Urdu utterances; swap this one line to try tiny).
-const MODEL_ID = 'Xenova/whisper-base'
-// const MODEL_ID = 'Xenova/whisper-tiny' // faster/smaller fallback — tested notably less accurate on Urdu, see recognition test notes in data/urdu.js
+// Keep the Urdu model small enough for production browsers. whisper-base in
+// FP32 can exhaust the tab's memory when WebGPU is unavailable and the model
+// falls back to CPU/WASM. The tiny quantized model trades some accuracy for
+// a substantially lower memory footprint and a usable failure mode.
+const MODEL_ID = 'Xenova/whisper-tiny'
 
 const SAMPLE_RATE = 16000
 
@@ -34,6 +33,7 @@ let transcriber = null
 function loadViaDevice(device) {
   return pipeline('automatic-speech-recognition', MODEL_ID, {
     device,
+    dtype: 'q8',
     progress_callback: (p) => self.postMessage({ type: 'progress', progress: p }),
   })
 }
