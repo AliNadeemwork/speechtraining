@@ -62,7 +62,7 @@ export const SECTIONS = [
     items: URDU_ALPHABET,
     hasRange: false,
     mode: 'urdu',
-    numberStyle: 'outline',
+    numberStyle: 'solid',
     rtl: true,
   },
 ]

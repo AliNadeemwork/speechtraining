@@ -9,10 +9,19 @@ function pickVoice(lang) {
   if (voiceCache[lang] !== undefined) return voiceCache[lang]
   const voices = window.speechSynthesis?.getVoices?.() || []
   const base = lang.split('-')[0]
+  // No installed voice for the requested language (e.g. no Urdu voice on
+  // this device/browser — confirmed to be the common case right now) must
+  // still fall back to SOME voice. Leaving u.voice unset while u.lang stays
+  // set to an unsupported language is what was causing total silence on
+  // Listen: several browsers (Chrome in particular) look up a voice for
+  // that lang, find none, and silently refuse to speak at all instead of
+  // using the default voice. Mispronounced audio beats no audio.
   const found =
     voices.find(v => v.lang === lang && /female|natural|google/i.test(v.name)) ||
     voices.find(v => v.lang === lang) ||
     voices.find(v => v.lang?.startsWith(base)) ||
+    voices.find(v => v.default) ||
+    voices[0] ||
     null
   voiceCache[lang] = found
   return found
@@ -39,7 +48,11 @@ export function speakRepeated(word, times, { rate = 0.75, gapMs = 900, lang = 'e
     const u = new SpeechSynthesisUtterance(word)
     const v = pickVoice(lang)
     if (v) u.voice = v
-    u.lang = lang
+    // Match the utterance's lang to whatever voice actually got picked —
+    // if that's a fallback voice for a different language (see pickVoice),
+    // keeping u.lang set to the ORIGINAL unsupported language is exactly
+    // what causes some browsers to refuse to speak at all.
+    u.lang = v?.lang || lang
     u.rate = rate
     u.pitch = 1.05
     u.onend = () => {

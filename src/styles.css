@@ -341,17 +341,26 @@ body {
    visually larger/taller than the Latin outline font at the same px size,
    so this trims down from the shared .big-display clamp rather than
    reusing it as-is. */
+/* Nastaliq's calligraphic diagonal flow means real ink extends far beyond
+   the standard em box (tall ascenders/descenders even on single letters +
+   diacritic-like tails) — the shared .big-display's line-height:1 is far
+   too tight for it and visually collides with the pronunciation label
+   right below. A taller line-height + explicit bottom margin fixes it. */
 .big-display-urdu {
   font-family: 'Noto Nastaliq Urdu', serif;
-  font-size: clamp(90px, 26vw, 150px);
+  font-size: clamp(80px, 22vw, 130px);
   font-weight: 700;
   direction: rtl;
+  line-height: 2.1;
+  margin-bottom: 8px;
 }
 
 .number-word-urdu {
   font-family: 'Noto Nastaliq Urdu', serif;
   direction: rtl;
   font-size: 22px;
+  line-height: 1.6;
+  margin-top: 4px;
 }
 
 .mic-hint { font-size: 15px; color: var(--blue); font-weight: 600; text-align: center; }
