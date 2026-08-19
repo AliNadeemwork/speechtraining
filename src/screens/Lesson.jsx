@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import logo from '../assets/logo.png'
 import { getSection } from '../data/sections'
 import { speakRepeated, speakOnce } from '../lib/tts'
 import { init, listen, stop, isSupported, isReady } from '../lib/recognition'
 import { evaluate } from '../lib/evaluate'
 import { evaluatePhoneme } from '../lib/phonemeEvaluator'
 import { playApplause } from '../lib/applause'
-import { Mirror, SpeakerIcon, MicIcon, ExitXIcon } from '../components/ui'
+import { Mirror, SpeakerIcon, MicIcon, ExitXIcon, LightbulbIcon, BrandBlock } from '../components/ui'
 import { HelpModal } from '../components/Help'
 
 const MAX_STRIKES = 3
@@ -49,10 +48,14 @@ export default function Lesson({ sectionId, settings, onExit }) {
   }, [section, activeItems.length, onExit])
 
   const item = activeItems[Math.min(index, Math.max(activeItems.length - 1, 0))]
-  // Numbers items are spoken via spokenWord (e.g. "three"); Alphabets items
-  // via phonicLabel (e.g. "Buh") — the pure phonic sound, spoken as-is, no
-  // real-word substitution. Both are also what's shown on screen.
-  const ttsSpokenText = item?.phonicLabel || item?.spokenWord
+  // Numbers items are spoken via spokenWord alone (e.g. "three"). Phonics
+  // items have both phonicLabel and spokenWord — spoken as "Ah... apple"
+  // (sound then word). The child may answer with EITHER just the word or
+  // the sound+word phrase; both are accepted (see the phrase variant baked
+  // into each phonics item's `variants` in data/alphabets.js).
+  const ttsSpokenText = item && item.phonicLabel
+    ? `${item.phonicLabel}... ${item.spokenWord}`
+    : item?.spokenWord
   const displayLabel = item?.phonicLabel || (item ? item.spokenWord[0].toUpperCase() + item.spokenWord.slice(1) : '')
   const cancelSpeechRef = useRef(null)
   const videoRef = useRef(null)
@@ -202,7 +205,20 @@ export default function Lesson({ sectionId, settings, onExit }) {
 
     try {
       const config = section.mode === 'word'
-        ? { mode: 'word', target: item.spokenWord, allowedWords: section.items.map(i => i.spokenWord), language: 'en' }
+        ? {
+            mode: 'word',
+            target: item.spokenWord,
+            // Phonics items (phonicLabel present) need their "<sound>
+            // <word>" phrase variant IN Vosk's grammar itself, not just in
+            // evaluate.js's post-hoc matching — a form Vosk was never given
+            // can never come back as the recognized text. Numbers/Tens keep
+            // their original grammar (spokenWord only, variants stay
+            // evaluate.js-only leniency) — unchanged, per spec.
+            allowedWords: section.items.flatMap(i =>
+              i.phonicLabel ? [i.spokenWord, ...(i.variants || [])] : [i.spokenWord]
+            ),
+            language: 'en',
+          }
         : { mode: 'phoneme', target: item.id, language: 'en' }
       const result = await listen(config)
       busyRef.current = false
@@ -251,13 +267,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
       <header className="lesson-header">
         <Mirror videoRef={videoRef} status={mirrorStatus} />
 
-        <div className="lesson-brand">
-          <div className="brand-divider" />
-          <img className="brand-logo" src={logo} alt="VAILA'S School logo" />
-          <h1 className="brand-title">VAILA'S Speech Trainer</h1>
-          <p className="brand-subtitle">{section.subtitle}</p>
-          <div className="brand-divider" />
-        </div>
+        <BrandBlock subtitle={section.subtitle?.toUpperCase()} />
 
         <button className="exit-btn" onClick={exit} aria-label="Exit lesson">
           <ExitXIcon />
@@ -270,12 +280,23 @@ export default function Lesson({ sectionId, settings, onExit }) {
 
         <div className={
           'big-display' +
+          (section.numberStyle === 'solid' ? ' big-display-solid' : ' big-display-outline') +
           (phase === 'RETRY' ? ' number-shake' : '') +
           (phase === 'SUCCESS' ? ' number-zoom' : '')
         }>
           {item.display}
         </div>
         <p className="number-word">{displayLabel}</p>
+
+        {item.picture && (
+          <div className="picture-card">
+            <div className="picture-emoji" aria-hidden="true">{item.picture}</div>
+            <p className="picture-word">
+              <span className="picture-word-first">{item.spokenWord[0]}</span>
+              {item.spokenWord.slice(1)}
+            </p>
+          </div>
+        )}
 
         {phase === 'SUCCESS' && (
           <>
@@ -330,10 +351,10 @@ export default function Lesson({ sectionId, settings, onExit }) {
       {phase !== 'SUCCESS' && phase !== 'GOOD_EFFORT' && (
         <div className="bottom-row">
           <button className="btn btn-nav" onClick={goNext}>
-            Next ➡
+            <span aria-hidden="true">➡</span><span>Next</span>
           </button>
-          <button className="btn btn-help" onClick={() => setHelpOpen(true)}>
-            Help
+          <button className="btn btn-guidance" onClick={() => setHelpOpen(true)}>
+            <LightbulbIcon /><span>Guidance</span>
           </button>
         </div>
       )}

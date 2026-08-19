@@ -38,6 +38,51 @@ export function ExitXIcon() {
   )
 }
 
+export function LightbulbIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 18h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.44.9 1.15.9 1.9V16h5.2v-.2c0-.75.3-1.46.9-1.9A6 6 0 0 0 12 3z" />
+    </svg>
+  )
+}
+
+// Circular "ear" badge used in the brand header, matching the approved
+// mockup's simple line-art icon (not the fuller school crest in logo.png,
+// which stays on the Home screen only).
+export function EarBadge() {
+  return (
+    <svg viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
+      <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" strokeWidth="3" />
+      <path
+        d="M28 20c6 0 11 5 11 11 0 5-3 7-3 11a5 5 0 0 1-10 0"
+        fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"
+      />
+      <path d="M28 24c3.5 0 6 3 6 6.5S32 36 29.5 36" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// Shared brand block: ear badge, "VSCI&HI" pill, title, red section label,
+// gold-star tagline. `subtitle` is the red uppercase line (e.g. "PHONICS",
+// "NUMBERS"); omit it on screens with no active section (plain chooser).
+export function BrandBlock({ subtitle }) {
+  return (
+    <div className="lesson-brand">
+      <div className="ear-badge"><EarBadge /></div>
+      <div className="vsci-badge">VSCI&amp;HI</div>
+      <p className="vsci-caption">For Children with Hearing Aid &amp; Cochlear Implant</p>
+      <h1 className="brand-title">VAILA'S Speech Trainer</h1>
+      {subtitle && <p className="brand-subtitle">{subtitle}</p>}
+      <p className="tagline-row">
+        <span className="tagline-star" aria-hidden="true">★</span>
+        Inclusive Learning for Every Child
+        <span className="tagline-star" aria-hidden="true">★</span>
+      </p>
+    </div>
+  )
+}
+
 // Live front-camera preview, top-left of the lesson header.
 // Falls back to a friendly placeholder if the camera is denied/unavailable —
 // the lesson works fully without it.

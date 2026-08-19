@@ -1,5 +1,7 @@
 // Lesson content for the "Count by 10s" section — skip-counting 10, 20, 30
-// ... 100. Same shared item shape as numbers.js:
+// ... 100, then 1000 as the final item (client-requested exactly this way:
+// a "big number" finale right after 100, not a continuation of the by-10s
+// pattern). Same shared item shape as numbers.js:
 //   { id, display, spokenWord, variants[], helpText, mouthShape }
 //
 // A separate list from numbers.js (rather than extending its range) since
@@ -55,6 +57,11 @@ export const TENS = [
   {
     id: 100, display: '100', spokenWord: 'one hundred', variants: ['hundred', 'wonhundred'],
     helpText: 'TODO(school): Say "one", then lips relax and tongue taps for "hundred".',
+    mouthShape: 'round',
+  },
+  {
+    id: 1000, display: '1000', spokenWord: 'one thousand', variants: ['thousand', 'wonthousand'],
+    helpText: 'TODO(school): Say "one", then lips round briefly for "th-ousand".',
     mouthShape: 'round',
   },
 ]
