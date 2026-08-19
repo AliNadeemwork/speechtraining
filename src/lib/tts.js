@@ -9,20 +9,22 @@ function pickVoice(lang) {
   if (voiceCache[lang] !== undefined) return voiceCache[lang]
   const voices = window.speechSynthesis?.getVoices?.() || []
   const base = lang.split('-')[0]
-  // No installed voice for the requested language (e.g. no Urdu voice on
-  // this device/browser — confirmed to be the common case right now) must
-  // still fall back to SOME voice. Leaving u.voice unset while u.lang stays
-  // set to an unsupported language is what was causing total silence on
-  // Listen: several browsers (Chrome in particular) look up a voice for
-  // that lang, find none, and silently refuse to speak at all instead of
-  // using the default voice. Mispronounced audio beats no audio.
-  const found =
+  const direct =
     voices.find(v => v.lang === lang && /female|natural|google/i.test(v.name)) ||
     voices.find(v => v.lang === lang) ||
-    voices.find(v => v.lang?.startsWith(base)) ||
-    voices.find(v => v.default) ||
-    voices[0] ||
-    null
+    voices.find(v => v.lang?.startsWith(base))
+  // No installed voice for the requested language (e.g. no Urdu voice on
+  // this device/browser — confirmed to be the common case right now) must
+  // still fall back to SOME voice, or several browsers (Chrome in
+  // particular) silently refuse to speak at all instead of using a default.
+  // The fallback specifically reuses whichever voice successfully speaks
+  // 'en-US' (confirmed working) rather than voices.find(v=>v.default) /
+  // voices[0] — some listed voices (e.g. "Daniel (English UK)" on this
+  // exact setup) report a full start/end lifecycle with zero actual audio,
+  // a known quirk of voices that are listed by the OS but not fully
+  // installed/downloaded. Falling back to the SAME voice English already
+  // uses successfully avoids landing on one of those broken entries.
+  const found = direct || (lang === 'en-US' ? null : pickVoice('en-US'))
   voiceCache[lang] = found
   return found
 }
