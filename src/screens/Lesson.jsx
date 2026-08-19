@@ -66,6 +66,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const busyRef = useRef(false) // guards double-taps across Listen/Speak
+  const listenGenerationRef = useRef(0)
   const strikesRef = useRef(0)
 
   const cleanupSpeech = useCallback(() => {
@@ -178,6 +179,9 @@ export default function Lesson({ sectionId, settings, onExit }) {
 
   const goNext = useCallback(() => {
     cleanupSpeech()
+    listenGenerationRef.current += 1
+    busyRef.current = false
+    stop()
     if (index + 1 >= activeItems.length) {
       onExit()
     } else {
@@ -189,6 +193,9 @@ export default function Lesson({ sectionId, settings, onExit }) {
   const goBack = useCallback(() => {
     if (index === 0) return
     cleanupSpeech()
+    listenGenerationRef.current += 1
+    busyRef.current = false
+    stop()
     setIndex(i => i - 1)
     setPhase('INTRO')
   }, [index, cleanupSpeech])
@@ -211,6 +218,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
     if (phase !== 'READY' && phase !== 'RETRY') return
     if (!modelReady) return
     busyRef.current = true
+    const listenGeneration = listenGenerationRef.current
     setMicError(null)
     setNoAttempt(false)
     setPhase('LISTENING')
@@ -235,6 +243,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
           ? { mode: 'urdu', target: item.spokenTarget, language: 'ur' }
           : { mode: 'phoneme', target: item.id, language: 'en' }
       const result = await listen(config)
+      if (listenGeneration !== listenGenerationRef.current) return
       busyRef.current = false
 
       // No speech was ever detected (silence/mic issue) — this is not a
@@ -264,6 +273,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
         setPhase('RETRY')
       }
     } catch (err) {
+      if (listenGeneration !== listenGenerationRef.current) return
       busyRef.current = false
       if (String(err?.message || err) === 'mic-denied') {
         setMicError('Microphone access was denied. Please allow the microphone and try again.')
@@ -373,10 +383,10 @@ export default function Lesson({ sectionId, settings, onExit }) {
 
       {phase !== 'SUCCESS' && phase !== 'GOOD_EFFORT' && (
         <div className="bottom-row">
-          <button className="btn btn-back" onClick={goBack} disabled={isFirst}>
+          <button className="btn btn-back" onClick={goBack} disabled={isFirst || phase === 'LISTENING'}>
             <span aria-hidden="true">⬅</span><span>Back</span>
           </button>
-          <button className="btn btn-nav" onClick={goNext}>
+          <button className="btn btn-nav" onClick={goNext} disabled={phase === 'LISTENING'}>
             <span>Next</span><span aria-hidden="true">➡</span>
           </button>
         </div>

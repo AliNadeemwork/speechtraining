@@ -1,7 +1,6 @@
 // Text-to-speech via the browser's speechSynthesis.
 // Speaks a word `times` times with a pause between repetitions.
-// Returns a cancel function; resolves the onDone callback when finished
-// or cancelled.
+// Returns a cancel function; invokes onDone when all repetitions finish.
 
 const voiceCache = {}
 
@@ -86,7 +85,6 @@ export function speakRepeated(word, times, { rate = 0.75, gapMs = 900, lang = 'e
     cancelled = true
     clearTimeout(timer)
     synth.cancel()
-    onDone?.()
   }
 }
 

@@ -230,7 +230,18 @@ function createWordEngine() {
     source.connect(processor)
     processor.connect(audioCtx.destination)
 
-    session = { finalize, promise: finalPromise, abort: () => { stopped = true; teardownAudio(); busy = false; session = null } }
+    session = {
+      finalize,
+      promise: finalPromise,
+      abort: () => {
+        if (stopped) return
+        stopped = true
+        teardownAudio()
+        busy = false
+        session = null
+        resolveFinal('[noattempt]')
+      },
+    }
     return finalPromise
   }
 
