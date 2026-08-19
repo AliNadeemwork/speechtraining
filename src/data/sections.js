@@ -16,6 +16,7 @@ import { NUMBERS } from './numbers'
 import { NUMBERS_100 } from './numbers100'
 import { TENS } from './tens'
 import { ALPHABETS } from './alphabets'
+import { URDU_ALPHABET } from './urdu'
 
 export const SECTIONS = [
   {
@@ -53,6 +54,16 @@ export const SECTIONS = [
     hasRange: false,
     mode: 'word',
     numberStyle: 'solid',
+  },
+  {
+    id: 'urdu',
+    label: 'Urdu',
+    subtitle: 'Urdu',
+    items: URDU_ALPHABET,
+    hasRange: false,
+    mode: 'urdu',
+    numberStyle: 'outline',
+    rtl: true,
   },
 ]
 

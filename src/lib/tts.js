@@ -3,25 +3,29 @@
 // Returns a cancel function; resolves the onDone callback when finished
 // or cancelled.
 
-let voiceCache = null
+const voiceCache = {}
 
-function pickVoice() {
-  if (voiceCache) return voiceCache
+function pickVoice(lang) {
+  if (voiceCache[lang] !== undefined) return voiceCache[lang]
   const voices = window.speechSynthesis?.getVoices?.() || []
-  voiceCache =
-    voices.find(v => v.lang === 'en-US' && /female|natural|google/i.test(v.name)) ||
-    voices.find(v => v.lang === 'en-US') ||
-    voices.find(v => v.lang?.startsWith('en')) ||
+  const base = lang.split('-')[0]
+  const found =
+    voices.find(v => v.lang === lang && /female|natural|google/i.test(v.name)) ||
+    voices.find(v => v.lang === lang) ||
+    voices.find(v => v.lang?.startsWith(base)) ||
     null
-  return voiceCache
+  voiceCache[lang] = found
+  return found
 }
 
 // Voices load asynchronously on some browsers.
 if (typeof window !== 'undefined' && window.speechSynthesis) {
-  window.speechSynthesis.onvoiceschanged = () => { voiceCache = null; pickVoice() }
+  window.speechSynthesis.onvoiceschanged = () => {
+    for (const key of Object.keys(voiceCache)) delete voiceCache[key]
+  }
 }
 
-export function speakRepeated(word, times, { rate = 0.75, gapMs = 900 } = {}, onDone) {
+export function speakRepeated(word, times, { rate = 0.75, gapMs = 900, lang = 'en-US' } = {}, onDone) {
   const synth = window.speechSynthesis
   if (!synth) { onDone?.(); return () => {} }
 
@@ -33,9 +37,9 @@ export function speakRepeated(word, times, { rate = 0.75, gapMs = 900 } = {}, on
     if (remaining <= 0) { onDone?.(); return }
 
     const u = new SpeechSynthesisUtterance(word)
-    const v = pickVoice()
+    const v = pickVoice(lang)
     if (v) u.voice = v
-    u.lang = 'en-US'
+    u.lang = lang
     u.rate = rate
     u.pitch = 1.05
     u.onend = () => {

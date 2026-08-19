@@ -337,6 +337,23 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* Urdu: proper Nastaliq font + RTL direction. Nastaliq glyphs render
+   visually larger/taller than the Latin outline font at the same px size,
+   so this trims down from the shared .big-display clamp rather than
+   reusing it as-is. */
+.big-display-urdu {
+  font-family: 'Noto Nastaliq Urdu', serif;
+  font-size: clamp(90px, 26vw, 150px);
+  font-weight: 700;
+  direction: rtl;
+}
+
+.number-word-urdu {
+  font-family: 'Noto Nastaliq Urdu', serif;
+  direction: rtl;
+  font-size: 22px;
+}
+
 .mic-hint { font-size: 15px; color: var(--blue); font-weight: 600; text-align: center; }
 .listening-hint { color: var(--red); }
 .intro-hint { color: var(--muted); }

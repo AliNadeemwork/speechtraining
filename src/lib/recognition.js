@@ -2,25 +2,26 @@
 // actually recognized. No UI file may import an engine directly, only this
 // adapter, and no UI file may import 'vosk-browser' or
 // '@huggingface/transformers' — those only appear here and in
-// phonemeWorker.js.
+// phonemeWorker.js/whisperWorker.js.
 //
 // ---------------------------------------------------------------------
-// DUAL-ENGINE INTERFACE CONTRACT:
-//   type RecognitionMode = 'word' | 'phoneme'
+// MULTI-ENGINE INTERFACE CONTRACT:
+//   type RecognitionMode = 'word' | 'phoneme' | 'urdu'
 //   interface RecognitionConfig {
 //     mode: RecognitionMode
-//     target: string            // the expected word/phoneme (informational
-//                                // for callers/evaluators; not used to bias
-//                                // decoding — both engines decode freely)
+//     target: string            // the expected word/phoneme/Urdu text
+//                                // (informational for callers/evaluators;
+//                                // not used to bias decoding — no engine
+//                                // here decodes with knowledge of it)
 //     allowedWords?: string[]   // 'word' mode only: the grammar list. The
 //                                // adapter always appends '[unk]'.
-//     language?: 'en'           // only 'en' is implemented for either mode
+//     language?: 'en' | 'ur'    // 'en' for word/phoneme, 'ur' for urdu
 //   }
 //
 //   init(mode): Promise<void>
 //     — loads the engine for this mode (singleton per mode; switching modes
-//       loads the other engine but does not discard the first — both can
-//       stay warm across Numbers <-> Alphabets navigation in the same tab).
+//       loads the other engine but does not discard the first — all three
+//       can stay warm across section navigation in the same tab).
 //   listen(config): Promise<string>
 //     — 'word' mode: builds/reuses the Vosk grammar from config.allowedWords
 //       and returns the recognized word, or '[unk]' if Vosk heard speech it
@@ -28,18 +29,23 @@
 //     — 'phoneme' mode: records ~1.8s of audio, runs the Wav2Vec2 CTC model,
 //       and returns the raw IPA phoneme string Vosk— sorry, Wav2Vec2 —
 //       decoded, or '[unk]'/'[noattempt]' with the same meaning as above.
+//     — 'urdu' mode: records ~2s of audio, runs Whisper (whisperWorker.js),
+//       and returns the raw Urdu-script transcription, or '[noattempt]' if
+//       no speech was ever detected. Whisper has no grammar/[unk] concept —
+//       empty output is the closest equivalent and is what gets returned.
 //     Evaluation (is this recognized text "correct" for the current target)
-//     happens OUTSIDE the adapter — see lib/evaluate.js (word) and
-//     lib/phonemeEvaluator.js (phoneme) — the adapter only ever returns raw
-//     recognized text, never a pass/fail judgement.
+//     happens OUTSIDE the adapter — see lib/evaluate.js (word),
+//     lib/phonemeEvaluator.js (phoneme), lib/urduEvaluate.js (urdu) — the
+//     adapter only ever returns raw recognized text, never a pass/fail
+//     judgement.
 //   stop(): Promise<void>
 //     — cancel whatever listen() is currently in flight, if any, with no
 //       result (used for unmount/Exit cleanup).
 //
-//   Also exported for lifecycle/UI-gating (both modes):
+//   Also exported for lifecycle/UI-gating (all modes):
 //   isSupported(): boolean
 //   isReady(mode): boolean — has init(mode) finished loading that engine?
-//   terminate(): void — full teardown of BOTH engines (worker, model, mic).
+//   terminate(): void — full teardown of ALL engines (worker, model, mic).
 // ---------------------------------------------------------------------
 
 // ============================== WORD engine (Vosk) ==========================
@@ -423,11 +429,165 @@ function createPhonemeEngine() {
   return { init, listen, stop, isReady, terminate }
 }
 
+// ============================== URDU engine (Whisper) =======================
+// See whisperWorker.js for model details. This module only owns audio
+// capture + the worker protocol, same shape as the phoneme engine above —
+// all model/decoding details stay in the worker.
+
+const URDU_SAMPLE_RATE = 16000
+const URDU_RECORD_MS = 2000       // ~2s per spec
+const URDU_SILENCE_RMS = 0.012    // same noise floor as the other engines
+
+function debugEnabledUrdu() {
+  try { return localStorage.getItem('urduRecognitionDebug') === '1' } catch { return false }
+}
+function debugLogUrdu(...args) {
+  if (debugEnabledUrdu()) console.log('[urdu]', ...args)
+}
+
+function createUrduEngine() {
+  let worker = null
+  let readyPromise = null
+  let ready = false
+  let nextId = 1
+  let busy = false
+  let currentAbort = null
+
+  function getWorker() {
+    if (!worker) {
+      worker = new Worker(new URL('./whisperWorker.js', import.meta.url), { type: 'module' })
+    }
+    return worker
+  }
+
+  function init() {
+    if (!readyPromise) {
+      readyPromise = new Promise((resolve, reject) => {
+        const w = getWorker()
+        const handle = (e) => {
+          const msg = e.data
+          if (msg.type === 'progress') debugLogUrdu('progress', msg.progress)
+          else if (msg.type === 'ready') {
+            w.removeEventListener('message', handle)
+            ready = true
+            resolve()
+          } else if (msg.type === 'error' && !msg.id) {
+            w.removeEventListener('message', handle)
+            reject(new Error(msg.error))
+          }
+        }
+        w.addEventListener('message', handle)
+        w.postMessage({ type: 'warmup' })
+      }).catch((err) => { readyPromise = null; throw err })
+    }
+    return readyPromise
+  }
+
+  function isReady() { return ready }
+
+  function record() {
+    return new Promise((resolve, reject) => {
+      navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, sampleRate: URDU_SAMPLE_RATE, echoCancellation: true, noiseSuppression: true },
+      }).then((stream) => {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        const source = audioCtx.createMediaStreamSource(stream)
+        const processor = audioCtx.createScriptProcessor(4096, 1, 1)
+        const chunks = []
+        let peakRms = 0
+        let stopped = false
+
+        const teardown = () => {
+          if (stopped) return
+          stopped = true
+          try { processor.disconnect() } catch {}
+          try { source.disconnect() } catch {}
+          try { stream.getTracks().forEach(t => t.stop()) } catch {}
+          const rate = audioCtx.sampleRate
+          audioCtx.close().catch(() => {})
+          const total = chunks.reduce((n, c) => n + c.length, 0)
+          const merged = new Float32Array(total)
+          let offset = 0
+          for (const c of chunks) { merged.set(c, offset); offset += c.length }
+          resolve({ merged, rate, peakRms })
+        }
+
+        processor.onaudioprocess = (e) => {
+          if (stopped) return
+          const buf = new Float32Array(e.inputBuffer.getChannelData(0))
+          chunks.push(buf)
+          peakRms = Math.max(peakRms, computeRms(buf))
+        }
+        source.connect(processor)
+        processor.connect(audioCtx.destination)
+
+        currentAbort = () => { teardown(); resolve({ merged: new Float32Array(0), rate: audioCtx.sampleRate, peakRms: 0, aborted: true }) }
+        setTimeout(teardown, URDU_RECORD_MS)
+      }).catch((err) => {
+        const denied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
+        reject(new Error(denied ? 'mic-denied' : 'start-failed'))
+      })
+    })
+  }
+
+  async function listen() {
+    if (busy) throw new Error('busy')
+    if (!ready) throw new Error('init(\'urdu\') must resolve before listen()')
+    busy = true
+    try {
+      const { merged, rate, peakRms, aborted } = await record()
+      if (aborted) return '[noattempt]'
+
+      debugLogUrdu('recorded', { durationMs: Math.round(merged.length / rate * 1000), peakRms })
+      if (peakRms < URDU_SILENCE_RMS) {
+        debugLogUrdu('no speech detected')
+        return '[noattempt]'
+      }
+
+      const audio16k = downsampleTo16k(merged, rate)
+      const id = nextId++
+      const w = getWorker()
+      const text = await new Promise((resolve, reject) => {
+        const handle = (e) => {
+          const msg = e.data
+          if (msg.id !== id) return
+          w.removeEventListener('message', handle)
+          if (msg.type === 'result') resolve(msg.text)
+          else if (msg.type === 'error') reject(new Error(msg.error))
+        }
+        w.addEventListener('message', handle)
+        w.postMessage({ type: 'transcribe', id, audio: audio16k })
+      })
+      debugLogUrdu('raw Whisper output', JSON.stringify(text))
+      return text && text.trim() ? text.trim() : '[noattempt]'
+    } finally {
+      busy = false
+    }
+  }
+
+  function stop() {
+    currentAbort?.()
+    return Promise.resolve()
+  }
+
+  function terminate() {
+    worker?.terminate()
+    worker = null
+    readyPromise = null
+    ready = false
+    busy = false
+    currentAbort = null
+  }
+
+  return { init, listen, stop, isReady, terminate }
+}
+
 // ================================ ADAPTER ====================================
 
 const engines = {
   word: createWordEngine(),
   phoneme: createPhonemeEngine(),
+  urdu: createUrduEngine(),
 }
 
 export function isSupported() {

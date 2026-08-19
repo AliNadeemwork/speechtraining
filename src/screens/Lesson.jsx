@@ -4,6 +4,7 @@ import { speakRepeated, speakOnce } from '../lib/tts'
 import { init, listen, stop, isSupported, isReady } from '../lib/recognition'
 import { evaluate } from '../lib/evaluate'
 import { evaluatePhoneme } from '../lib/phonemeEvaluator'
+import { evaluateUrdu } from '../lib/urduEvaluate'
 import { playApplause } from '../lib/applause'
 import { Mirror, SpeakerIcon, MicIcon, ExitXIcon, LightbulbIcon, BrandBlock } from '../components/ui'
 import { HelpModal } from '../components/Help'
@@ -52,11 +53,15 @@ export default function Lesson({ sectionId, settings, onExit }) {
   // items have both phonicLabel and spokenWord — spoken as "Ah... apple"
   // (sound then word). The child may answer with EITHER just the word or
   // the sound+word phrase; both are accepted (see the phrase variant baked
-  // into each phonics item's `variants` in data/alphabets.js).
+  // into each phonics item's `variants` in data/alphabets.js). Urdu items
+  // only have spokenTarget (the letter's name in Urdu script) — no sound
+  // prefix concept there (see TODO in data/urdu.js on names vs. sounds).
   const ttsSpokenText = item && item.phonicLabel
     ? `${item.phonicLabel}... ${item.spokenWord}`
-    : item?.spokenWord
-  const displayLabel = item?.phonicLabel || (item ? item.spokenWord[0].toUpperCase() + item.spokenWord.slice(1) : '')
+    : item?.spokenTarget || item?.spokenWord
+  const displayLabel = item?.phonicLabel || item?.spokenTarget ||
+    (item ? item.spokenWord[0].toUpperCase() + item.spokenWord.slice(1) : '')
+  const ttsLang = section?.mode === 'urdu' ? 'ur-PK' : 'en-US'
   const cancelSpeechRef = useRef(null)
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -138,7 +143,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
     const cancel = speakRepeated(
       ttsSpokenText,
       settings.repetitions,
-      { rate: settings.speechRate },
+      { rate: settings.speechRate, lang: ttsLang },
       () => setPhase('READY')
     )
     cancelSpeechRef.current = cancel
@@ -198,7 +203,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
   const handleListen = () => {
     if (busyRef.current) return
     if (phase !== 'READY' && phase !== 'RETRY') return
-    speakOnce(ttsSpokenText, { rate: settings.speechRate })
+    speakOnce(ttsSpokenText, { rate: settings.speechRate, lang: ttsLang })
   }
 
   const handleSpeak = async () => {
@@ -226,7 +231,9 @@ export default function Lesson({ sectionId, settings, onExit }) {
             ),
             language: 'en',
           }
-        : { mode: 'phoneme', target: item.id, language: 'en' }
+        : section.mode === 'urdu'
+          ? { mode: 'urdu', target: item.spokenTarget, language: 'ur' }
+          : { mode: 'phoneme', target: item.id, language: 'en' }
       const result = await listen(config)
       busyRef.current = false
 
@@ -241,7 +248,9 @@ export default function Lesson({ sectionId, settings, onExit }) {
 
       const { isCorrect } = section.mode === 'word'
         ? evaluate(result, item, settings)
-        : evaluatePhoneme(result, item, settings)
+        : section.mode === 'urdu'
+          ? evaluateUrdu(result, item, settings)
+          : evaluatePhoneme(result, item, settings)
       if (isCorrect) {
         strikesRef.current = 0
         setPhase('SUCCESS')
@@ -294,12 +303,13 @@ export default function Lesson({ sectionId, settings, onExit }) {
         <div className={
           'big-display' +
           (section.numberStyle === 'solid' ? ' big-display-solid' : ' big-display-outline') +
+          (section.rtl ? ' big-display-urdu' : '') +
           (phase === 'RETRY' ? ' number-shake' : '') +
           (phase === 'SUCCESS' ? ' number-zoom' : '')
         }>
           {item.display}
         </div>
-        <p className="number-word">{displayLabel}</p>
+        <p className={'number-word' + (section.rtl ? ' number-word-urdu' : '')}>{displayLabel}</p>
 
         {item.picture && (
           <div className="picture-card">
