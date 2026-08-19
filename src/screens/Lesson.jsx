@@ -181,6 +181,13 @@ export default function Lesson({ sectionId, settings, onExit }) {
     }
   }, [index, activeItems.length, onExit, cleanupSpeech])
 
+  const goBack = useCallback(() => {
+    if (index === 0) return
+    cleanupSpeech()
+    setIndex(i => i - 1)
+    setPhase('INTRO')
+  }, [index, cleanupSpeech])
+
   const exit = () => {
     if (!window.confirm('Exit this lesson and choose another?')) return
     cleanupSpeech()
@@ -259,6 +266,7 @@ export default function Lesson({ sectionId, settings, onExit }) {
   }
 
   const isLast = index + 1 >= activeItems.length
+  const isFirst = index === 0
 
   if (!item) return null
 
@@ -269,10 +277,15 @@ export default function Lesson({ sectionId, settings, onExit }) {
 
         <BrandBlock subtitle={section.subtitle?.toUpperCase()} />
 
-        <button className="exit-btn" onClick={exit} aria-label="Exit lesson">
-          <ExitXIcon />
-          <span>Exit</span>
-        </button>
+        <div className="header-actions">
+          <button className="exit-btn" onClick={exit} aria-label="Exit lesson">
+            <ExitXIcon />
+            <span>Exit</span>
+          </button>
+          <button className="btn-guidance-top" onClick={() => setHelpOpen(true)} aria-label="Guidance">
+            <LightbulbIcon /><span>Guidance</span>
+          </button>
+        </div>
       </header>
 
       <div className={'lesson-body' + (phase === 'SUCCESS' ? ' success-bg' : '')}>
@@ -350,11 +363,11 @@ export default function Lesson({ sectionId, settings, onExit }) {
 
       {phase !== 'SUCCESS' && phase !== 'GOOD_EFFORT' && (
         <div className="bottom-row">
-          <button className="btn btn-nav" onClick={goNext}>
-            <span aria-hidden="true">➡</span><span>Next</span>
+          <button className="btn btn-back" onClick={goBack} disabled={isFirst}>
+            <span aria-hidden="true">⬅</span><span>Back</span>
           </button>
-          <button className="btn btn-guidance" onClick={() => setHelpOpen(true)}>
-            <LightbulbIcon /><span>Guidance</span>
+          <button className="btn btn-nav" onClick={goNext}>
+            <span>Next</span><span aria-hidden="true">➡</span>
           </button>
         </div>
       )}

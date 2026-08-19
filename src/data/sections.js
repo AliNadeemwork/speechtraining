@@ -52,7 +52,7 @@ export const SECTIONS = [
     items: ALPHABETS,
     hasRange: false,
     mode: 'word',
-    numberStyle: 'outline',
+    numberStyle: 'solid',
   },
 ]
 

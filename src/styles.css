@@ -264,7 +264,14 @@ body {
 
 .tagline-star { color: var(--gold); font-size: 12px; }
 
-.exit-btn {
+.header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.exit-btn, .btn-guidance-top {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -273,13 +280,17 @@ body {
   border: none;
   border-radius: 14px;
   padding: 8px 12px;
-  color: var(--red);
   box-shadow: 0 3px 10px rgba(0,0,0,0.1);
   cursor: pointer;
   font-family: inherit;
   font-size: 11px;
   font-weight: 700;
 }
+
+.exit-btn { color: var(--red); }
+
+.btn-guidance-top { color: var(--purple); }
+.btn-guidance-top svg { width: 20px; height: 20px; }
 
 .lesson-body {
   flex: 1;
@@ -439,12 +450,13 @@ body {
   box-shadow: 0 5px 14px rgba(30,79,176,0.3);
 }
 
-.btn-guidance {
+.btn-back {
   flex: 1;
-  background: var(--purple);
-  color: #fff;
-  box-shadow: 0 5px 14px rgba(123,47,190,0.3);
+  background: #eef3fc;
+  color: var(--blue);
+  border: 2px solid #dfe6f2;
 }
+.btn-back:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .lesson-footer {
   width: 100%;

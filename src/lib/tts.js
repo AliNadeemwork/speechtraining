@@ -42,16 +42,26 @@ export function speakRepeated(word, times, { rate = 0.75, gapMs = 900 } = {}, on
       if (cancelled) return
       timer = setTimeout(() => speakOnce(remaining - 1), gapMs)
     }
-    u.onerror = () => {
+    u.onerror = (e) => {
       if (cancelled) return
+      if (e?.error && e.error !== 'interrupted' && e.error !== 'canceled') {
+        console.warn('[tts] speech error:', e.error)
+      }
       timer = setTimeout(() => speakOnce(remaining - 1), gapMs)
     }
+    // Chrome has a known bug where speak() can silently no-op (or fire an
+    // immediate "interrupted" error) if the synth was left in a paused
+    // state by a previous call — resume() first works around it.
+    synth.resume()
     synth.speak(u)
   }
 
-  // Safari/Chrome sometimes need a cancel() to clear a stuck queue.
+  // Safari/Chrome sometimes need a cancel() to clear a stuck queue. Calling
+  // speak() synchronously right after cancel() is a well-known cause of
+  // Chrome silently killing the new utterance with an "interrupted" error
+  // instead of ever producing sound — a short delay avoids the race.
   synth.cancel()
-  speakOnce(times)
+  timer = setTimeout(() => speakOnce(times), 80)
 
   return () => {
     cancelled = true
